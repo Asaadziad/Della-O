@@ -1,0 +1,5 @@
+func loser(test : int) {
+  return test;
+}
+
+print("hello");
