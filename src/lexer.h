@@ -9,7 +9,13 @@ class Lexer {
   std::vector<Token> tokens;
   public:
   Lexer(const std::string filename);
+  ~Lexer(); 
   char peek();
   std::vector<Token> tokenize();
   void advance();
+  char peekNext();
+  #ifdef DEBUG_FLAG
+  void print();
+  #endif
+
 };
