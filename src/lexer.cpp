@@ -15,6 +15,18 @@ typedef enum {
 
   TOKEN_SEMICOLON,
   TOKEN_EQUAL,
+  TOKEN_ASSIGN,
+
+  TOKEN_PLUS,
+  TOKEN_MINUS,
+  TOKEN_DIVIDE,
+  TOKEN_MULT,
+
+  TOKEN_LEFT_PAREN,
+  TOKEN_RIGHT_PAREN,
+  TOKEN_LEFT_BRACKET,
+  TOKEN_RIGHT_BRACKET,
+
 } TokenType;
 
 struct token_t {
@@ -150,8 +162,36 @@ std::vector<Token> Lexer::tokenize() {
         tokens.push_back(makeToken(";", TOKEN_SEMICOLON));
         break;
      case '=':
-         tokens.push_back(makeToken("=", TOKEN_EQUAL));
+         if(peekNext() == '=') {
+          tokens.push_back(makeToken("==", TOKEN_EQUAL));
+          break;
+         } 
+         tokens.push_back(makeToken("=", TOKEN_ASSIGN));
         break;
+     case '(':
+        tokens.push_back((makeToken("(", TOKEN_LEFT_PAREN)));
+        break;
+     case ')':
+        tokens.push_back((makeToken(")", TOKEN_RIGHT_PAREN)));
+        break;
+     case '{':
+        tokens.push_back((makeToken("{", TOKEN_LEFT_BRACKET)));
+        break;
+     case '}':
+        tokens.push_back((makeToken("}", TOKEN_RIGHT_BRACKET)));
+        break;
+     case '+':
+        tokens.push_back((makeToken("+", TOKEN_PLUS)));
+        break;
+     case '-':
+         tokens.push_back((makeToken("-", TOKEN_MINUS)));
+        break;
+     case '/':
+        tokens.push_back((makeToken("/", TOKEN_LEFT_PAREN)));
+        break;
+     case '*':
+        tokens.push_back((makeToken("*", TOKEN_LEFT_PAREN)));
+        break;   
     default:break;
    }
     
