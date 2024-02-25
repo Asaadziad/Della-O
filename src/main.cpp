@@ -3,7 +3,7 @@
 
 int main() {
   Lexer lexer("main.A");
-
-  std::cout << "HELLO, A" << std::endl;
+  lexer.tokenize(); 
+  
   return 0;
 }

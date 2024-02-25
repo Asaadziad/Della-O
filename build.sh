@@ -2,4 +2,4 @@
 
 mkdir -p bin
 
-clang++  src/*.cpp -o bin/A -D DEBUG_FLAG
+clang++  src/*.cpp -o bin/A  -D DEBUG_FLAG
