@@ -9,25 +9,6 @@
 
                     
 /* TOKEN FUNCTIONALITY  */
-typedef enum {
-  TOKEN_INTEGER,
-  TOKEN_IDENTIFIER,
-
-  TOKEN_SEMICOLON,
-  TOKEN_EQUAL,
-  TOKEN_ASSIGN,
-
-  TOKEN_PLUS,
-  TOKEN_MINUS,
-  TOKEN_DIVIDE,
-  TOKEN_MULT,
-
-  TOKEN_LEFT_PAREN,
-  TOKEN_RIGHT_PAREN,
-  TOKEN_LEFT_BRACKET,
-  TOKEN_RIGHT_BRACKET,
-
-} TokenType;
 
 struct token_t {
   TokenType   type;
@@ -40,6 +21,17 @@ Token makeToken(std::string literal, TokenType type) {
    t->literal = literal;
    return t;
 }
+
+std::string getTokenLiteral(Token token) {
+  if(!token) return "TOKEN_ERROR";
+  return token->literal;
+}
+ 
+TokenType getTokenType(Token token){
+  if(!token) {
+    return TOKEN_ERROR;
+  }
+  return token->type; }
 
 #ifdef DEBUG_FLAG
 static std::string stringfyType(TokenType type) {
@@ -187,10 +179,10 @@ std::vector<Token> Lexer::tokenize() {
          tokens.push_back((makeToken("-", TOKEN_MINUS)));
         break;
      case '/':
-        tokens.push_back((makeToken("/", TOKEN_LEFT_PAREN)));
+        tokens.push_back((makeToken("/", TOKEN_DIVIDE)));
         break;
      case '*':
-        tokens.push_back((makeToken("*", TOKEN_LEFT_PAREN)));
+        tokens.push_back((makeToken("*", TOKEN_MULT)));
         break;   
     default:break;
    }
@@ -214,10 +206,14 @@ std::vector<Token> Lexer::tokenize() {
 }
 
 #ifdef DEBUG_FLAG
+void printToken(Token token) {
+    std::cout << "{ literal: " << token->literal << ", type: " << stringfyType(token->type) << " }" << std::endl;
+}
+
 void Lexer::print() {
   std::cout << "Tokens:" << std::endl;
   for(auto token : tokens) {
-    std::cout << "{ Literal: " << token->literal << ", type: " << stringfyType(token->type) << " }" << std::endl;
+    std::cout << "{ literal: " << token->literal << ", type: " << stringfyType(token->type) << " }" << std::endl;
   }
 }
 #endif

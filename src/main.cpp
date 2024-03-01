@@ -1,11 +1,9 @@
 #include <iostream>
-#include "lexer.h"
+#include "parser.h"
 
 int main() {
-  Lexer lexer("main.A");
-  lexer.tokenize(); 
-  #ifdef DEBUG_FLAG
-    lexer.print();
-  #endif
+  Parser parser("main.A");
+  parser.init();  
+
   return 0;
 }
