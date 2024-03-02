@@ -26,6 +26,27 @@ bool Parser::match(TokenType type) {
   return false;
 }
 
+typedef struct expr *Expr;
+
+typedef struct expr_binop {
+  char op;
+  Expr lhs;
+  Expr rhs;
+} *ExprBin;
+
+typedef struct expr_funcall {} *ExprFunCall;
+
+struct expr {
+  
+};
+
+// parses numbers and funcalls
+Expr parse_primary() {}
+
+Expr parse_binop_expr() {}
+
+Expr parse_expression() {}
+
 Token Parser::peek_current() {
   if(current >= tokens.size()) return NULL;
   return tokens[current];
