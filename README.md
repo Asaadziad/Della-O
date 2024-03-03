@@ -1,3 +1,3 @@
 # Alang
 
-Language -> Assembly -> Machine Code
+Language -> QBE intermediate language -> assemlby -> machine code
