@@ -1,6 +1,8 @@
 
 #include "parser.h"
 #include <iostream>
+#include <cstdio>
+#include <cstdlib>
 
 Parser::Parser(std::string source) {
   Lexer     lexer(source);
@@ -42,7 +44,8 @@ typedef enum {
 class Expr {
   public:
   Expr(){};
-  Expr(int number): number(number) {};
+  Expr(ExprType type): expr_type(type) {};
+  Expr(int number, ExprType type): number(number), expr_type(type) {};
   ~Expr(); 
   int value() {
     return number;
@@ -50,8 +53,6 @@ class Expr {
   ExprType getType() {
     return expr_type;
   };
-  virtual Expr* getLhs();
-  virtual Expr* getRhs();
   private:
     ExprType expr_type;
     int number;
@@ -59,7 +60,7 @@ class Expr {
 
 class ExprBinary: public Expr {
   public:
-    ExprBinary(Expr* lhs,Expr* rhs,BinopType binop): lhs(lhs), rhs(rhs), binop(binop) {};
+    ExprBinary(Expr* lhs,Expr* rhs,BinopType binop):Expr(Expr_BinOp) ,lhs(lhs), rhs(rhs), binop(binop) {};
     ~ExprBinary() {
       delete lhs;
       delete rhs;
@@ -69,6 +70,9 @@ class ExprBinary: public Expr {
     };
     Expr* getRhs() {
       return rhs;
+    };
+    BinopType getBinopType() {
+      return binop;
     };
   private:
     Expr*     lhs;
@@ -95,10 +99,12 @@ class ExprFunCall: public Expr {
 Expr* parse_primary(Parser& parser) {
   Token t = parser.peek_current();
   parser.advance();
+  
   if(getTokenType(t) == TOKEN_INTEGER) {
     
     int num = std::stoi(getTokenLiteral(t));
-    Expr* number = new Expr((int)num);   
+    Expr* number = new Expr((int)num, Expr_Number);
+       
     return number;
   } else {
     std::cout << "unexpected token" << std::endl;
@@ -110,7 +116,7 @@ Expr* parse_expr_mult(Parser& parser)
 {
   Expr* lhs = parse_primary(parser);
   if(!lhs) return NULL; 
-  if(getTokenType(parser.peek_next_token()) == TOKEN_PLUS) {
+  if(getTokenType(parser.peek_current()) == TOKEN_MULT) {
     parser.advance();
     Expr* rhs = parse_primary(parser);
     if(!rhs) return NULL;
@@ -127,7 +133,7 @@ Expr* parse_expr_plus(Parser& parser) {
   if(!lhs) {
     std::cout << "im at expr_plus lhs" << std::endl;
     return NULL; }
-  if(getTokenType(parser.peek_next_token()) == TOKEN_PLUS) {
+  if(getTokenType(parser.peek_current()) == TOKEN_PLUS) {
     parser.advance();
     Expr* rhs = parse_expr_mult(parser);
     if(!rhs) {
@@ -135,10 +141,12 @@ Expr* parse_expr_plus(Parser& parser) {
       return NULL;
     }
     Expr* plus = new ExprBinary(lhs, rhs, BINOP_PLUS); 
+    
     if(!plus) {
       std::cout << "im at expr_plus plus" << std::endl;
       return NULL;
-    } 
+    }
+    
     return plus;
   }
   return lhs;
@@ -148,20 +156,33 @@ Expr* parse_expression(Parser& parser) {
  return parse_expr_plus(parser); 
 }
 
-void compile_expr(Expr* expr){
-  switch(expr->getType()) {
-    case Expr_Number:
+void compile_expr(FILE* out,Expr* expr, size_t* stack_size){
+  ExprType type = expr->getType();
+ 
+    if(type == Expr_Number) {
       std::cout << expr->value();
-      break;
-    case Expr_BinOp:
-      
-      compile_expr(expr->getLhs());
-      compile_expr(expr->getRhs()); 
-    break;
-    case Expr_FunCall:
-    break;
+      fprintf(out, "  %%s%zu =w copy %d\n", *stack_size, expr->value()); 
+      *stack_size += 1;
+    } else if(type ==
+    Expr_BinOp) {  
+      ExprBinary* tmp = (ExprBinary*)expr;
+      compile_expr(out,tmp->getLhs(), stack_size);
+      compile_expr(out,tmp->getRhs(), stack_size);
+      switch(tmp->getBinopType()) {
+        case BINOP_PLUS:
+          fprintf(out, "  %%s%zu =w add %%s%zu, %%s%zu\n", *stack_size - 2, *stack_size - 2 , *stack_size - 1); 
+          *stack_size -= 1;
+          break;
+        case BINOP_MULT:
+          fprintf(out, "  %%s%zu =w mul %%s%zu, %%s%zu\n", *stack_size - 2, *stack_size - 2 , *stack_size - 1); 
+          *stack_size -= 1;
+
+          break;
+      }; 
+    } else {
+      std::cout << "error" <<std::endl;
+    }
      
-  };
 }
 
 Token Parser::peek_current() {
@@ -180,18 +201,28 @@ void Parser::advance() {
   current++;
 }
 
-void Parser::init(){ 
-  while(current < tokens.size()) {
-    Token previous = peek_current();
-    advance();
+void Parser::init(){
+  FILE* out = std::fopen("./main.ssa", "wb");
+  if(!out) return;
+  
+  fprintf(out , "export function w $main() {\n");
+  fprintf(out , "@start\n");
+  
+  size_t stack_size = 0;
+  while(current < tokens.size()) { 
     Expr* root =  parse_expression(*this);  
     if(!root) {
       std::cout << "root is null" << std::endl;
       return;
     }
-    compile_expr(root);
+    compile_expr(out, root, &stack_size);
   }
-      
+  fprintf(out, "  call $printf(l $fmt, ... ,w %%s%zu)\n", stack_size - 1);
+  fprintf(out, "  ret 0\n");
+  fprintf(out, "}\n");
+  fprintf(out, "data $fmt = { b \"%%d\\n\", b 0}");
+
+  std::fclose(out); 
 } 
 
 
