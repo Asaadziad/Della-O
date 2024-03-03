@@ -13,22 +13,6 @@ Parser::Parser(std::string source) {
   current = 0; 
 }
 
-
-static void consumeToken(std::vector<Token>& tokens) {
-  #ifdef DEBUG_FLAG
-    printToken(tokens[0]);
-  #endif
-  tokens.erase(tokens.begin());
-}
-
-bool Parser::match(TokenType type) {
-  Token current = peek_current();
-  advance();
-  if(getTokenType(current) == type) return true;
-  return false;
-}
-
-
 typedef enum {
    Expr_Number,
    Expr_BinOp,
@@ -46,7 +30,7 @@ class Expr {
   Expr(){};
   Expr(ExprType type): expr_type(type) {};
   Expr(int number, ExprType type): number(number), expr_type(type) {};
-  ~Expr(); 
+  ~Expr() {}; 
   int value() {
     return number;
   };
@@ -80,20 +64,37 @@ class ExprBinary: public Expr {
     BinopType binop;
 };
 
+typedef enum {
+  FUN_PRINT,
+} FunType;
+
 class ExprFunCall: public Expr {
   public:
-    ExprFunCall(){};
+    ExprFunCall(std::string name): Expr(Expr_FunCall), name(name){};
     ~ExprFunCall() {
       for(auto expr: args) {
         delete expr;
       }
     };
+    std::vector<Expr*>& getArgs() {
+      return args;
+    }
+    std::string getName() {
+      return name;
+    }
   private:
     std::vector<Expr*> args;
     std::string        name;
+    FunType            fun_type;
 };
 
 
+bool matchToken(Token t, TokenType type) {
+  if(getTokenType(t) == type) return true;
+  return false;
+}
+
+bool parse_args(Parser& parser,std::vector<Expr*>& args); 
 
 // parses numbers and funcalls
 Expr* parse_primary(Parser& parser) {
@@ -106,9 +107,14 @@ Expr* parse_primary(Parser& parser) {
     Expr* number = new Expr((int)num, Expr_Number);
        
     return number;
+  } else if(getTokenType(t) == TOKEN_IDENTIFIER) {  
+      ExprFunCall* funcall = new ExprFunCall(getTokenLiteral(t));
+       
+      if(!parse_args(parser,funcall->getArgs())) return NULL;
+      return funcall;
   } else {
     std::cout << "unexpected token" << std::endl;
-  }
+  } 
   return NULL;
 }
 
@@ -156,11 +162,30 @@ Expr* parse_expression(Parser& parser) {
  return parse_expr_plus(parser); 
 }
 
+
+bool parse_args(Parser& parser,std::vector<Expr*>& args) {
+  
+  if(!matchToken(parser.peek_current(), TOKEN_LEFT_PAREN)) return false; 
+  parser.advance();
+  
+  
+  args.push_back(parse_expression(parser));
+
+  if(!matchToken(parser.peek_current(), TOKEN_RIGHT_PAREN)) return false; 
+  parser.advance();
+  if(!matchToken(parser.peek_current(), TOKEN_SEMICOLON)) { 
+    std::cout << "syntax error missing semicolon" << std::endl;
+    return false;
+  }
+  parser.advance();
+  return true;
+}
+
+
 void compile_expr(FILE* out,Expr* expr, size_t* stack_size){
   ExprType type = expr->getType();
  
     if(type == Expr_Number) {
-      std::cout << expr->value();
       fprintf(out, "  %%s%zu =w copy %d\n", *stack_size, expr->value()); 
       *stack_size += 1;
     } else if(type ==
@@ -179,8 +204,11 @@ void compile_expr(FILE* out,Expr* expr, size_t* stack_size){
 
           break;
       }; 
-    } else {
-      std::cout << "error" <<std::endl;
+    } else if(type == Expr_FunCall) {
+      ExprFunCall* funcall = (ExprFunCall*)expr; 
+      compile_expr(out,funcall->getArgs()[0], stack_size); 
+      fprintf(out, "  call $printf(l $fmt, ... ,w %%s%zu)\n", *stack_size - 1);
+      *stack_size -= 1;
     }
      
 }
@@ -209,15 +237,14 @@ void Parser::init(){
   fprintf(out , "@start\n");
   
   size_t stack_size = 0;
-  while(current < tokens.size()) { 
+  while(current < tokens.size()) {  
     Expr* root =  parse_expression(*this);  
     if(!root) {
       std::cout << "root is null" << std::endl;
       return;
     }
     compile_expr(out, root, &stack_size);
-  }
-  fprintf(out, "  call $printf(l $fmt, ... ,w %%s%zu)\n", stack_size - 1);
+  } 
   fprintf(out, "  ret 0\n");
   fprintf(out, "}\n");
   fprintf(out, "data $fmt = { b \"%%d\\n\", b 0}");
