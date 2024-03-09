@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
+#include <memory>
 
 Parser::Parser(std::string source) {
   Lexer     lexer(source);
@@ -17,6 +18,7 @@ typedef enum {
    Expr_Number,
    Expr_BinOp,
    Expr_FunCall,
+   Expr_FunDec,
 } ExprType;
 
 typedef enum {
@@ -27,191 +29,32 @@ typedef enum {
 
 class Expr {
   public:
-  Expr(){};
-  Expr(ExprType type): expr_type(type) {};
-  Expr(int number, ExprType type): number(number), expr_type(type) {};
-  ~Expr() {}; 
-  int value() {
-    return number;
-  };
-  ExprType getType() {
-    return expr_type;
-  };
+  virtual ~Expr() = default; 
+  virtual void generateCode();
+      
+};
+
+class ExprNumber: public Expr {
   private:
-    ExprType expr_type;
-    int number;
+    double val;
+  public:
+    ExprNumber(double val): val(val){};
+};
+
+class ExprVariable: public Expr {
+  std::string name;
+  public:
+    ExprVariable(std::string name):name(name) {};
 };
 
 class ExprBinary: public Expr {
+  BinopType op_type;
+  std::unique_ptr<Expr> LHS;
+  std::unique_ptr<Expr> RHS;
   public:
-    ExprBinary(Expr* lhs,Expr* rhs,BinopType binop):Expr(Expr_BinOp) ,lhs(lhs), rhs(rhs), binop(binop) {};
-    ~ExprBinary() {
-      delete lhs;
-      delete rhs;
-    };
-    Expr* getLhs() {
-      return lhs;
-    };
-    Expr* getRhs() {
-      return rhs;
-    };
-    BinopType getBinopType() {
-      return binop;
-    };
-  private:
-    Expr*     lhs;
-    Expr*     rhs;
-    BinopType binop;
+    ExprBinary(BinopType op_type, std::unique_ptr<Expr> LHS, std::unique_ptr<Expr> RHS):
+                op_type(op_type), LHS(std::move(LHS)), RHS(std::move(RHS)) {};
 };
-
-typedef enum {
-  FUN_PRINT,
-} FunType;
-
-class ExprFunCall: public Expr {
-  public:
-    ExprFunCall(std::string name): Expr(Expr_FunCall), name(name){};
-    ~ExprFunCall() {
-      for(auto expr: args) {
-        delete expr;
-      }
-    };
-    std::vector<Expr*>& getArgs() {
-      return args;
-    }
-    std::string getName() {
-      return name;
-    }
-  private:
-    std::vector<Expr*> args;
-    std::string        name;
-    FunType            fun_type;
-};
-
-
-bool matchToken(Token t, TokenType type) {
-  if(getTokenType(t) == type) return true;
-  return false;
-}
-
-bool parse_args(Parser& parser,std::vector<Expr*>& args); 
-
-// parses numbers and funcalls
-Expr* parse_primary(Parser& parser) {
-  Token t = parser.peek_current();
-  parser.advance();
-  
-  if(getTokenType(t) == TOKEN_INTEGER) {
-    
-    int num = std::stoi(getTokenLiteral(t));
-    Expr* number = new Expr((int)num, Expr_Number);
-       
-    return number;
-  } else if(getTokenType(t) == TOKEN_IDENTIFIER) {  
-      ExprFunCall* funcall = new ExprFunCall(getTokenLiteral(t));
-       
-      if(!parse_args(parser,funcall->getArgs())) return NULL;
-      return funcall;
-  } else {
-    std::cout << "unexpected token" << std::endl;
-  } 
-  return NULL;
-}
-
-Expr* parse_expr_mult(Parser& parser) 
-{
-  Expr* lhs = parse_primary(parser);
-  if(!lhs) return NULL; 
-  if(getTokenType(parser.peek_current()) == TOKEN_MULT) {
-    parser.advance();
-    Expr* rhs = parse_primary(parser);
-    if(!rhs) return NULL;
-    Expr* plus = new ExprBinary(lhs, rhs, BINOP_MULT);  
-    if(!plus) return NULL;
-    return plus;
-  }
-  return lhs;
-
-}
-
-Expr* parse_expr_plus(Parser& parser) {
-  Expr* lhs = parse_expr_mult(parser);
-  if(!lhs) {
-    std::cout << "im at expr_plus lhs" << std::endl;
-    return NULL; }
-  if(getTokenType(parser.peek_current()) == TOKEN_PLUS) {
-    parser.advance();
-    Expr* rhs = parse_expr_mult(parser);
-    if(!rhs) {
-      std::cout << "im at expr_plus rhs" << std::endl;
-      return NULL;
-    }
-    Expr* plus = new ExprBinary(lhs, rhs, BINOP_PLUS); 
-    
-    if(!plus) {
-      std::cout << "im at expr_plus plus" << std::endl;
-      return NULL;
-    }
-    
-    return plus;
-  }
-  return lhs;
-}
-
-Expr* parse_expression(Parser& parser) {
- return parse_expr_plus(parser); 
-}
-
-
-bool parse_args(Parser& parser,std::vector<Expr*>& args) {
-  
-  if(!matchToken(parser.peek_current(), TOKEN_LEFT_PAREN)) return false; 
-  parser.advance();
-  
-  
-  args.push_back(parse_expression(parser));
-
-  if(!matchToken(parser.peek_current(), TOKEN_RIGHT_PAREN)) return false; 
-  parser.advance();
-  if(!matchToken(parser.peek_current(), TOKEN_SEMICOLON)) { 
-    std::cout << "syntax error missing semicolon" << std::endl;
-    return false;
-  }
-  parser.advance();
-  return true;
-}
-
-
-void compile_expr(FILE* out,Expr* expr, size_t* stack_size){
-  ExprType type = expr->getType();
- 
-    if(type == Expr_Number) {
-      fprintf(out, "  %%s%zu =w copy %d\n", *stack_size, expr->value()); 
-      *stack_size += 1;
-    } else if(type ==
-    Expr_BinOp) {  
-      ExprBinary* tmp = (ExprBinary*)expr;
-      compile_expr(out,tmp->getLhs(), stack_size);
-      compile_expr(out,tmp->getRhs(), stack_size);
-      switch(tmp->getBinopType()) {
-        case BINOP_PLUS:
-          fprintf(out, "  %%s%zu =w add %%s%zu, %%s%zu\n", *stack_size - 2, *stack_size - 2 , *stack_size - 1); 
-          *stack_size -= 1;
-          break;
-        case BINOP_MULT:
-          fprintf(out, "  %%s%zu =w mul %%s%zu, %%s%zu\n", *stack_size - 2, *stack_size - 2 , *stack_size - 1); 
-          *stack_size -= 1;
-
-          break;
-      }; 
-    } else if(type == Expr_FunCall) {
-      ExprFunCall* funcall = (ExprFunCall*)expr; 
-      compile_expr(out,funcall->getArgs()[0], stack_size); 
-      fprintf(out, "  call $printf(l $fmt, ... ,w %%s%zu)\n", *stack_size - 1);
-      *stack_size -= 1;
-    }
-     
-}
 
 Token Parser::peek_current() {
   if(current >= tokens.size()) return NULL;

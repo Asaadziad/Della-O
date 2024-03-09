@@ -194,7 +194,11 @@ std::vector<Token> Lexer::tokenize() {
 
    if(isAlphChar(current)) {
       std::string ident = readIdent(this);
-      tokens.push_back(makeToken(ident, TOKEN_IDENTIFIER)); 
+      if(ident.compare("function") == 0) {
+        tokens.push_back(makeToken(ident, TOKEN_KEYWORD));
+      } else {
+        tokens.push_back(makeToken(ident, TOKEN_IDENTIFIER)); 
+      }
    }
 
    skipWhiteSpaces(this); 
