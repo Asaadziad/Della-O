@@ -56,6 +56,28 @@ class ExprBinary: public Expr {
                 op_type(op_type), LHS(std::move(LHS)), RHS(std::move(RHS)) {};
 };
 
+class ExprFunCall : public Expr {
+  std::string name;
+  std::vector<std::unique_ptr<Expr>> args;
+  public:
+  ExprFunCall(std::string name, std::vector<std::unique_ptr<Expr>> args): name(name),args(std::move(args)) {};
+};
+
+class ExprProto {
+  std::string name;
+  std::vector<std::string> args;
+  public:
+  ExprProto(std::string name, std::vector<std::string> args): name(name), args(std::move(args)) {};
+  const std::string& getName() { return name; }; 
+};
+
+class ExprFunDec {
+  std::unique_ptr<ExprProto> proto;
+  std::unique_ptr<Expr>      body;
+  public:
+  ExprFunDec(std::unique_ptr<ExprProto> proto, std::unique_ptr<Expr> body): proto(std::move(proto)), body(std::move(body)){};
+};
+
 Token Parser::peek_current() {
   if(current >= tokens.size()) return NULL;
   return tokens[current];
