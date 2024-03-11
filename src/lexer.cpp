@@ -153,6 +153,9 @@ std::vector<Token> Lexer::tokenize() {
      case ';':
         tokens.push_back(makeToken(";", TOKEN_SEMICOLON));
         break;
+     case ',':
+        tokens.push_back(makeToken(",", TOKEN_COLON));
+        break;
      case '=':
          if(peekNext() == '=') {
           tokens.push_back(makeToken("==", TOKEN_EQUAL));
