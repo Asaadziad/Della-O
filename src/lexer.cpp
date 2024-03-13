@@ -144,11 +144,12 @@ std::string readIdent(Lexer* lexer) {
 }
 
 std::vector<Token> Lexer::tokenize() {
-  skipWhiteSpaces(this);
+  
   
   
   while(peek() != '\0') {
    char current = peek();
+   
    switch(current) {
      case ';':
         tokens.push_back(makeToken(";", TOKEN_SEMICOLON));
@@ -198,7 +199,7 @@ std::vector<Token> Lexer::tokenize() {
    if(isAlphChar(current)) {
       std::string ident = readIdent(this);
       if(ident.compare("function") == 0) {
-        tokens.push_back(makeToken(ident, TOKEN_KEYWORD));
+        tokens.push_back(makeToken(ident, TOKEN_FUNDEC));
       } else {
         tokens.push_back(makeToken(ident, TOKEN_IDENTIFIER)); 
       }

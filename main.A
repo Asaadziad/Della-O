@@ -1,1 +1,23 @@
-30 +( 2 * 9 )
+
+// this is a comment
+
+/*
+  This is comment too
+*/
+
+
+let a : int = 3;
+b := 3;
+
+add(a : double, b : double) :: double {  
+  return a+b;
+  a+b;// this returns too
+}
+
+add(a,b); // this is a function call 
+
+main() :: {
+  print( 66 + 66, 66);
+}
+
+
