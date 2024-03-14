@@ -1,0 +1,6 @@
+   %s0 =w copy 5
+   %s1 =w copy 4
+   %s2 =w copy 2
+   %s1 =w mul %s1, %s2
+   %s0 =w add %s0, %s1
+  call $print(%s0, )
