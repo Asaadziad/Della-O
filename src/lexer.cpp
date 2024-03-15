@@ -108,26 +108,21 @@ char Lexer::peekNext() {
 
 std::string readInteger(Lexer* lexer) {
   std::string num = "";
-  
   while(true) {
      char c = lexer->peek(); 
      num += c;  
-  
      if (isNumChar(lexer->peekNext())) {
       lexer->advance();  
      } else {
       break;
      }
 
-  }
-
-  
+  }  
   return num;
 }
 
 std::string readIdent(Lexer* lexer) {
   std::string ident = "";
-  
   while(true) {
     char c = lexer->peek();
     ident += c;
@@ -138,15 +133,10 @@ std::string readIdent(Lexer* lexer) {
       break;
     }
   } 
-
-  
   return ident;
 }
 
-std::vector<Token> Lexer::tokenize() {
-  
-  
-  
+void Lexer::init() {
   while(peek() != '\0') {
    char current = peek();
    
@@ -218,7 +208,9 @@ std::vector<Token> Lexer::tokenize() {
    advance(); 
   }
 
+}
 
+std::vector<Token>& Lexer::tokenize() {
   return tokens;
 }
 

@@ -3,14 +3,8 @@
 #include <memory>
 #include "compiler.h"
 
-Parser::Parser(std::string source) {
-  Lexer     lexer(source);
-  std::vector<Token> tokenss = lexer.tokenize();
-  for(int i = 0; i < tokenss.size(); i++) {
-    auto token =  makeToken(getTokenLiteral(tokenss[i]), getTokenType(tokenss[i]));  
-    tokens.push_back(token);
-  }
-  current = 0; 
+Parser::Parser(std::string source): lexer(std::make_unique<Lexer>(source)), current(0) {
+  lexer->init();
 }
 
 static std::string getCurrentTokenView(Parser& parser) {
@@ -26,16 +20,15 @@ static TokenType getCurrentTokenType(Parser& parser) {
 
 static std::unique_ptr<Expr> parseExpression(Parser& parser);
 static std::unique_ptr<Expr> parseIdentifier(Parser& parser);
-static std::unique_ptr<Stmt> parseDeclaration(Parser& parser);
+static std::unique_ptr<Expr> parseDeclaration(Parser& parser);
 
 /*
  * End of function declaration
  * */
 
 
-static std::unique_ptr<Expr> parseNumber(Parser& parser) {
-  Token current_number = parser.peek_current();
-  int token_val = std::stoi(getTokenLiteral(current_number));
+static std::unique_ptr<Expr> parseNumber(Parser& parser) { 
+  int token_val = std::stoi(getCurrentTokenView(parser));
   auto num_expr = std::make_unique<ExprNumber>(token_val);
   parser.advance();
   return std::move(num_expr);
@@ -102,13 +95,13 @@ static std::unique_ptr<Expr> parseParen(Parser& parser) {
 }
 
 Token Parser::peek_current() {
-  if(current >= tokens.size()) return NULL;
-  return tokens[current];
+  if(current >= lexer->tokenize().size()) return NULL;
+  return lexer->tokenize()[current];
 }
 
 
 static std::unique_ptr<Expr> parsePrimary(Parser& parser) {
-  TokenType type = getTokenType(parser.peek_current()); 
+  TokenType type = getCurrentTokenType(parser); 
   switch(type) { 
     case TOKEN_PRINT:
     case TOKEN_IDENTIFIER:
@@ -126,7 +119,7 @@ static std::unique_ptr<Expr> parsePrimary(Parser& parser) {
 
 static std::unique_ptr<Expr> parseMul(Parser& parser) { 
   auto LHS = parsePrimary(parser);
-  TokenType type = getTokenType(parser.peek_current()); 
+  TokenType type = getCurrentTokenType(parser);
   switch(type) {
     case TOKEN_PLUS: {
       parser.advance();                       
@@ -149,7 +142,7 @@ static std::unique_ptr<Expr> parseExpression(Parser& parser) {
   return parseMul(parser);
 }
 
-static std::unique_ptr<Stmt> parseReturnStatement(Parser& parser) {
+static std::unique_ptr<Expr> parseReturnStatement(Parser& parser) {
   parser.advance(); // eat return
   auto root = parseExpression(parser);
   if(!root) {
@@ -160,7 +153,7 @@ static std::unique_ptr<Stmt> parseReturnStatement(Parser& parser) {
   return std::make_unique<RetStmt>(std::move(root));
 }
 
-static std::unique_ptr<Stmt> parseExprStatement(Parser& parser) { 
+static std::unique_ptr<Expr> parseExprStatement(Parser& parser) { 
   auto root = parseExpression(parser);
     if(!root) {
       std::cerr << "Root is null expr statement" << std::endl;
@@ -169,7 +162,10 @@ static std::unique_ptr<Stmt> parseExprStatement(Parser& parser) {
   return std::make_unique<ExprStmt>(std::move(root));    
 }
 
-static std::unique_ptr<Stmt> parseStatement(Parser& parser) {
+
+// statement is an expression with ; at the end
+//  expression;
+static std::unique_ptr<Expr> parseStatement(Parser& parser) {
   if(getCurrentTokenType(parser) == TOKEN_PRINT) {
     parser.advance(); 
     auto root = parseExpression(parser);
@@ -215,7 +211,7 @@ static std::unique_ptr<ExprProto> parseProto(Parser& parser) {
   return std::make_unique<ExprProto>(std::move(id_name), std::move(arguments));
 }
 
-static std::unique_ptr<Stmt> parseFunDeclaration(Parser& parser) {
+static std::unique_ptr<Expr> parseFunDeclaration(Parser& parser) {
   
   
   parser.advance(); // eat 'function'
@@ -230,7 +226,7 @@ static std::unique_ptr<Stmt> parseFunDeclaration(Parser& parser) {
    // parse block statement - '{' + declaration + '}'
     parser.advance(); // eat '{'
     
-    std::vector<std::unique_ptr<Stmt>> stmts;
+    std::vector<std::unique_ptr<Expr>> stmts;
     while(getCurrentTokenType(parser) != TOKEN_RIGHT_BRACKET){
       auto root = parseDeclaration(parser);
       if(!root) {
@@ -248,7 +244,7 @@ static std::unique_ptr<Stmt> parseFunDeclaration(Parser& parser) {
       std::move(stmts), std::move(proto));
 }
 
-static std::unique_ptr<Stmt> parseLetDeclaration(Parser& parser) {
+static std::unique_ptr<Expr> parseLetDeclaration(Parser& parser) {
   parser.advance(); // eat 'let'
   
   std::string var_name = getCurrentTokenView(parser);
@@ -275,7 +271,9 @@ static std::unique_ptr<Stmt> parseLetDeclaration(Parser& parser) {
   return std::make_unique<VarDeclaration>(std::move(var_exp), std::move(root));
 }
 
-static std::unique_ptr<Stmt> parseDeclaration(Parser& parser) {
+
+// declaration is func declaration | var declaration |   statment
+static std::unique_ptr<Expr> parseDeclaration(Parser& parser) {
   switch(getCurrentTokenType(parser)){
     case TOKEN_FUN:
       return parseFunDeclaration(parser);
@@ -291,7 +289,7 @@ void Parser::init(){
   FILE* out = fopen("main.ssa", "w+");
   if(!out) return;
   int stack_size = 0;
-  while(current < tokens.size()) {   
+  while(current < lexer->tokenize().size()) {   
     auto root = parseDeclaration(*this);  
     if(!root) {
       std::cerr << "ROOT IS NULL";
@@ -304,12 +302,12 @@ void Parser::init(){
 } 
 
 Token Parser::peek_next_token() {
-  if(current + 1 >= tokens.size()) return NULL;
+  if(current + 1 >= lexer->tokenize().size()) return NULL;
 
-  return tokens[current + 1];
+  return lexer->tokenize()[current + 1];
 }
 
 void Parser::advance() {
-  if(current >= tokens.size()) return;
+  if(current >= lexer->tokenize().size()) return;
   current++;
 }

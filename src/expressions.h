@@ -31,22 +31,6 @@ class ExprNumber: public Expr {
     }
 };
 
-typedef unsigned long long u64;
-typedef unsigned long      u32;
-typedef unsigned short     u16;
-typedef unsigned char      u8;
-typedef signed long long   s64;
-typedef signed int         s32;
-typedef signed short       s16;
-typedef signed char        s8;
-
-
-typedef enum {
-  TYPE_INT,
-  TYPE_STRING,
-  TYPE_BOOLEAN,
-} VarType;
-
 class ExprVariable: public Expr {
   std::string name; 
   public:
@@ -115,13 +99,7 @@ class ExprProto {
 };
 
 
-class Stmt {
-  public:
-  virtual ~Stmt() = default; 
-  virtual void generateCode(FILE* out,int* stack_size) = 0;
-};
-
-class ExprStmt : public Stmt {
+class ExprStmt : public Expr {
   std::unique_ptr<Expr> expr;
   public:
   ExprStmt(std::unique_ptr<Expr> e): expr(std::move(e)) {};
@@ -130,7 +108,7 @@ class ExprStmt : public Stmt {
   };
 };
 
-class RetStmt: public Stmt {
+class RetStmt: public Expr {
   std::unique_ptr<Expr> expr;
   public:
   RetStmt(std::unique_ptr<Expr> e): expr(std::move(e)) {};
@@ -140,7 +118,7 @@ class RetStmt: public Stmt {
   };
 };
 
-class PrintStmt: public Stmt {
+class PrintStmt: public Expr {
   std::unique_ptr<Expr> expr;
   public:
   PrintStmt(std::unique_ptr<Expr> e): expr(std::move(e)) {};
@@ -148,11 +126,11 @@ class PrintStmt: public Stmt {
   };
 };
 
-class FunDeclaration: public Stmt {
-  std::vector<std::unique_ptr<Stmt>> stmts;
+class FunDeclaration: public Expr {
+  std::vector<std::unique_ptr<Expr>> stmts;
   std::unique_ptr<ExprProto>         proto;
   public:
-  FunDeclaration(std::vector<std::unique_ptr<Stmt>> stmts, std::unique_ptr<ExprProto> proto):
+  FunDeclaration(std::vector<std::unique_ptr<Expr>> stmts, std::unique_ptr<ExprProto> proto):
     stmts(std::move(stmts)), proto(std::move(proto)) {};
   virtual void generateCode(FILE* out,int* stack_size){
     fprintf(out, "function w $%s(", proto->getName().c_str()); 
@@ -168,7 +146,7 @@ class FunDeclaration: public Stmt {
   };
 };
 
-class VarDeclaration: public Stmt {
+class VarDeclaration: public Expr {
   std::unique_ptr<Expr>         var_exp;
   std::unique_ptr<Expr>         var_val;
   public:

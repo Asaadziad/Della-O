@@ -1,6 +1,2 @@
-function main() {
-let x = 5;
-
-return x;
-}
+let x = 7;
 

@@ -51,12 +51,14 @@ void printToken(Token token);
 class Lexer {
   std::string buffer;
   size_t cursor;
+  size_t capacity;
   std::vector<Token> tokens;
   public:
   Lexer(const std::string filename);
   ~Lexer(); 
+  void init();
   char peek();
-  std::vector<Token> tokenize();
+  std::vector<Token>& tokenize();
   void advance();
   char peekNext();
   void consume_current_token();
