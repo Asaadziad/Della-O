@@ -18,7 +18,7 @@ typedef enum {
   TOKEN_COLON,
   TOKEN_COMMA,
   TOKEN_EQUAL,
-  TOKEN_ASSIGN,
+  TOKEN_EQUAL_EQUAL,
   
 
   TOKEN_PLUS,
@@ -33,6 +33,9 @@ typedef enum {
 
 
   TOKEN_PRINT,
+  TOKEN_FUN,
+  TOKEN_LET,
+  TOKEN_RETURN,
 } TokenType;
 
 

@@ -48,14 +48,13 @@ typedef enum {
 } VarType;
 
 class ExprVariable: public Expr {
-  std::string name;
-  VarType     var_type;
+  std::string name; 
   public:
-    ExprVariable(std::string name, VarType type):name(name), var_type(type) {};
+    ExprVariable(std::string name):name(name){};
     virtual void generateCode(FILE* out,int* stack_size) override { 
-     fprintf(out, "Hello"); 
+      fprintf(out, "%s", name.c_str()); 
       *stack_size += 1;
-    }
+    } 
 };
 
 class ExprBinary: public Expr {
@@ -78,7 +77,8 @@ class ExprBinary: public Expr {
           *stack_size -= 1;
           break;
         case BINOP_ASSIGN:
-         break;
+                     
+          break;
         default:break; 
       }
        
@@ -104,6 +104,7 @@ class ExprFunCall : public Expr {
   }
 };
 
+
 class ExprProto {
   std::string name;
   std::vector<std::string> args;
@@ -113,23 +114,71 @@ class ExprProto {
   const std::vector<std::string> getArgs() { return args; };
 };
 
-class ExprFunDec {
-  std::unique_ptr<ExprProto> proto;
-  std::unique_ptr<Expr>      body;
+
+class Stmt {
   public:
-  ExprFunDec(std::unique_ptr<ExprProto> proto, std::unique_ptr<Expr> body): 
-    proto(std::move(proto)), body(std::move(body)){};
-  void generateCode(FILE* out) {
-    fprintf(out, "function w $%s(", proto->getName().c_str());
-    for(auto& argName : proto->getArgs()) {
-      fprintf(out, " %s,", argName.c_str());
-    }
-    fprintf(out, "){\n@start\n");
-    int stack_size = 0;
-    body->generateCode(out, &stack_size);
-    fprintf(out, "  ret %%s%d\n", stack_size - 1);
-    fprintf(out, "}\n"); 
+  virtual ~Stmt() = default; 
+  virtual void generateCode(FILE* out,int* stack_size) = 0;
+};
+
+class ExprStmt : public Stmt {
+  std::unique_ptr<Expr> expr;
+  public:
+  ExprStmt(std::unique_ptr<Expr> e): expr(std::move(e)) {};
+  virtual void generateCode(FILE* out,int* stack_size){
+    //expr->generateCode(out, stack_size);
   };
+};
+
+class RetStmt: public Stmt {
+  std::unique_ptr<Expr> expr;
+  public:
+  RetStmt(std::unique_ptr<Expr> e): expr(std::move(e)) {};
+  virtual void generateCode(FILE* out,int* stack_size){
+    expr->generateCode(out, stack_size);
+    fprintf(out,"   ret %%s%d", *stack_size - 1);
+  };
+};
+
+class PrintStmt: public Stmt {
+  std::unique_ptr<Expr> expr;
+  public:
+  PrintStmt(std::unique_ptr<Expr> e): expr(std::move(e)) {};
+  virtual void generateCode(FILE* out,int* stack_size){
+  };
+};
+
+class FunDeclaration: public Stmt {
+  std::vector<std::unique_ptr<Stmt>> stmts;
+  std::unique_ptr<ExprProto>         proto;
+  public:
+  FunDeclaration(std::vector<std::unique_ptr<Stmt>> stmts, std::unique_ptr<ExprProto> proto):
+    stmts(std::move(stmts)), proto(std::move(proto)) {};
+  virtual void generateCode(FILE* out,int* stack_size){
+    fprintf(out, "function w $%s(", proto->getName().c_str()); 
+    for(auto& arg: proto->getArgs()) {
+      fprintf(out, "%s", arg.c_str());
+    }
+    fprintf(out, " ){\n@start\n");
+
+    for(auto& stmt: stmts) {
+      stmt->generateCode(out, stack_size);
+    }
+    fprintf(out, "\n}\n");
+  };
+};
+
+class VarDeclaration: public Stmt {
+  std::unique_ptr<Expr>         var_exp;
+  std::unique_ptr<Expr>         var_val;
+  public:
+  VarDeclaration(std::unique_ptr<Expr> var_exp, std::unique_ptr<Expr> var_eval): var_exp(std::move(var_exp)), var_val(std::move(var_eval)) {}
+  virtual void generateCode(FILE* out,int* stack_size){
+  var_val->generateCode(out, stack_size);
+  fprintf(out, "    %%");
+  var_exp->generateCode(out, stack_size);
+  fprintf(out, " =w copy %%s%d", *stack_size - 2);
+ };
 };
 
 #endif

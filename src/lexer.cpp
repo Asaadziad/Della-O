@@ -162,10 +162,10 @@ std::vector<Token> Lexer::tokenize() {
         break;
      case '=':
          if(peekNext() == '=') {
-          tokens.push_back(makeToken("==", TOKEN_EQUAL));
+          tokens.push_back(makeToken("==", TOKEN_EQUAL_EQUAL));
           break;
          } 
-         tokens.push_back(makeToken("=", TOKEN_ASSIGN));
+         tokens.push_back(makeToken("=", TOKEN_EQUAL));
         break;
      case '(':
         tokens.push_back((makeToken("(", TOKEN_LEFT_PAREN)));
@@ -202,7 +202,11 @@ std::vector<Token> Lexer::tokenize() {
    if(isAlphChar(current)) {
       std::string ident = readIdent(this);
       if(ident.compare("function") == 0) {
-        tokens.push_back(makeToken(ident, TOKEN_KEYWORD));
+        tokens.push_back(makeToken(ident, TOKEN_FUN));
+      } else if(ident.compare("let") == 0) {
+        tokens.push_back(makeToken(ident, TOKEN_LET));
+      } else if(ident.compare("return") == 0) {
+        tokens.push_back(makeToken(ident, TOKEN_RETURN));
       } else if(ident.compare("print") == 0) {
         tokens.push_back(makeToken(ident, TOKEN_PRINT));
       } else {

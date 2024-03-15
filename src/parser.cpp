@@ -17,12 +17,17 @@ static std::string getCurrentTokenView(Parser& parser) {
   return getTokenLiteral(parser.peek_current());
 }
 
+static TokenType getCurrentTokenType(Parser& parser) {
+  return getTokenType(parser.peek_current());
+}
 /*
  * Function declaration
  * */
 
 static std::unique_ptr<Expr> parseExpression(Parser& parser);
 static std::unique_ptr<Expr> parseIdentifier(Parser& parser);
+static std::unique_ptr<Stmt> parseDeclaration(Parser& parser);
+
 /*
  * End of function declaration
  * */
@@ -39,10 +44,10 @@ static std::unique_ptr<Expr> parseNumber(Parser& parser) {
 static std::unique_ptr<Expr> parseIdentifier(Parser& parser) { 
   std::string id_name = getTokenLiteral(parser.peek_current());
   parser.advance();
-  if(getTokenType(parser.peek_current()) != TOKEN_LEFT_PAREN) {
+  if(getCurrentTokenType(parser) != TOKEN_LEFT_PAREN) { 
+   return std::make_unique<ExprVariable>(id_name);
     
-    return nullptr;
-  }
+  } 
 
   parser.advance();
   std::vector<std::unique_ptr<Expr>> args;
@@ -101,35 +106,17 @@ Token Parser::peek_current() {
   return tokens[current];
 }
 
-// block := '{' + expression + '}'
-static std::unique_ptr<Expr> parseBlock(Parser& parser) {
-  parser.advance(); // eat {
-  auto expression = parseExpression(parser);
-  if(!expression) return nullptr;
-  if(getTokenType(parser.peek_current()) != TOKEN_RIGHT_BRACKET) {
-    
-    std::cerr << "Expected }" << std::endl;
-    return nullptr; 
-  } 
-  parser.advance(); // eat }
-  return expression;
-}
 
 static std::unique_ptr<Expr> parsePrimary(Parser& parser) {
   TokenType type = getTokenType(parser.peek_current()); 
-  switch(type) {
-    case TOKEN_KEYWORD:
-     parser.advance();
-    return parseIdentifier(parser); 
+  switch(type) { 
     case TOKEN_PRINT:
     case TOKEN_IDENTIFIER:
     return parseIdentifier(parser);
     case TOKEN_INTEGER:
     return parseNumber(parser);
     case TOKEN_LEFT_PAREN: 
-    return parseParen(parser);
-    case TOKEN_LEFT_BRACKET:
-    return parseBlock(parser); 
+    return parseParen(parser); 
     default:
     std::cerr << getCurrentTokenView(parser); 
     std::cerr << "Unexpected token" << std::endl;
@@ -139,7 +126,6 @@ static std::unique_ptr<Expr> parsePrimary(Parser& parser) {
 
 static std::unique_ptr<Expr> parseMul(Parser& parser) { 
   auto LHS = parsePrimary(parser);
-  
   TokenType type = getTokenType(parser.peek_current()); 
   switch(type) {
     case TOKEN_PLUS: {
@@ -151,18 +137,11 @@ static std::unique_ptr<Expr> parseMul(Parser& parser) {
       parser.advance();
       auto RHS = parseExpression(parser);
       return std::make_unique<ExprBinary>(BINOP_MULT, std::move(LHS), std::move(RHS));
-                    }
-    case TOKEN_EQUAL: {
-      parser.advance();
-      auto RHS = parseExpression(parser);
-      std::cout << "made assign";
-      return std::make_unique<ExprBinary>(BINOP_ASSIGN, std::move(LHS), std::move(RHS));
-                      }
-
+                    } 
     default:  
       break;
   }
-
+  
   return LHS;
 }
 
@@ -170,78 +149,158 @@ static std::unique_ptr<Expr> parseExpression(Parser& parser) {
   return parseMul(parser);
 }
 
-static std::unique_ptr<ExprProto> parseProtoType(Parser& parser){
-    if(getTokenType(parser.peek_current()) != TOKEN_IDENTIFIER){
-      std::cerr << "Expected function name" << std::endl;
-      return nullptr;
-    }
-
-    std::string fName = getTokenLiteral(parser.peek_current());
-    parser.advance();
-
-    if(getTokenType(parser.peek_current()) != TOKEN_LEFT_PAREN) {
-      std::cerr << "Expected '('" << std::endl;
-      return nullptr;
-    }
-    parser.advance(); // eat (
-                      
-    std::vector<std::string> argNames;
-    while(getTokenType(parser.peek_current()) == TOKEN_IDENTIFIER) {
-      argNames.push_back(getTokenLiteral(parser.peek_current()));
-      parser.advance();
-      if(getTokenType(parser.peek_current()) == TOKEN_RIGHT_PAREN) break;
-      if(getTokenType(parser.peek_current()) != TOKEN_COLON) {
-        std::cerr << "Expected , "<< std::endl;
-        return nullptr;
-      }
-      parser.advance();
-    }
-
-    parser.advance(); // eat )
-
-
-    return std::make_unique<ExprProto>(fName, std::move(argNames));
-}
-
-static std::unique_ptr<ExprFunDec> parseDec(Parser& parser) {
-  parser.advance(); // eat 'function' keyword
-  auto proto = parseProtoType(parser);
-  if(!proto) {
+static std::unique_ptr<Stmt> parseReturnStatement(Parser& parser) {
+  parser.advance(); // eat return
+  auto root = parseExpression(parser);
+  if(!root) {
+    std::cerr << "Couldnt parse expression" << std::endl;
     return nullptr;
-  } 
-  parser.advance(); // eat {
-
-  auto e = parseExpression(parser);
-  if(!e) { return nullptr; }
-  parser.advance(); // eat }
-  return std::make_unique<ExprFunDec>(std::move(proto), std::move(e));
+  }
+  
+  return std::make_unique<RetStmt>(std::move(root));
 }
 
-static void parseStatement(Parser& parser) {
-  if(getTokenType(parser.peek_current()) == TOKEN_PRINT) {
-    
+static std::unique_ptr<Stmt> parseExprStatement(Parser& parser) { 
+  auto root = parseExpression(parser);
+    if(!root) {
+      std::cerr << "Root is null expr statement" << std::endl;
+      return nullptr;
+    }
+  return std::make_unique<ExprStmt>(std::move(root));    
+}
+
+static std::unique_ptr<Stmt> parseStatement(Parser& parser) {
+  if(getCurrentTokenType(parser) == TOKEN_PRINT) {
+    parser.advance(); 
     auto root = parseExpression(parser);
     if(!root) {
       std::cerr << "Root is null" << std::endl;
-      return;
+      return nullptr;
     }
-    compile(std::move(root)); 
-    std::cout << "compiled" << std::endl;
-  } else {
+    return std::make_unique<PrintStmt>(std::move(root)); 
     
+  } else if(getCurrentTokenType(parser) == TOKEN_RETURN) {
+    
+    return parseReturnStatement(parser);
+  } else {
+    return parseExprStatement(parser); 
   }
 }
 
-static void parseDeclaration(Parser& parser) {
-  parseStatement(parser);  
+static std::unique_ptr<ExprProto> parseProto(Parser& parser) {
+  std::string id_name = getCurrentTokenView(parser);
+  parser.advance();
+  
+  if(getCurrentTokenType(parser) != TOKEN_LEFT_PAREN) {
+    std::cerr << "Expected '('" << std::endl;
+    return nullptr;  
+  }
+  
+  std::vector<std::string> arguments;
+  if(getTokenType(parser.peek_next_token()) == TOKEN_RIGHT_PAREN) {
+    parser.advance();
+    parser.advance();
+    return std::make_unique<ExprProto>(std::move(id_name), std::move(arguments)); 
+  }
+  
+  while(getCurrentTokenType(parser) != TOKEN_RIGHT_PAREN) {
+    auto arg = getCurrentTokenView(parser);  
+    arguments.push_back(arg);
+    parser.advance(); // eat var
+    parser.advance(); // eat ','
+  }
+
+  parser.advance(); // eat ')'
+
+  return std::make_unique<ExprProto>(std::move(id_name), std::move(arguments));
+}
+
+static std::unique_ptr<Stmt> parseFunDeclaration(Parser& parser) {
+  
+  
+  parser.advance(); // eat 'function'
+  
+  // parse prototype - function tag and args
+   auto proto = parseProto(parser); 
+    if(!proto) {
+      std::cerr << "Couldnt parse prototype" << std::endl;
+      return nullptr;
+    }
+ 
+   // parse block statement - '{' + declaration + '}'
+    parser.advance(); // eat '{'
+    
+    std::vector<std::unique_ptr<Stmt>> stmts;
+    while(getCurrentTokenType(parser) != TOKEN_RIGHT_BRACKET){
+      auto root = parseDeclaration(parser);
+      if(!root) {
+        std::cerr << "Couldnt parse statement" << std::endl;
+        return nullptr;
+      }
+      stmts.push_back(std::move(root));
+      
+      parser.advance(); 
+    }                
+
+    parser.advance(); // eat '}'  
+   // compile function declaration
+  return std::make_unique<FunDeclaration>(
+      std::move(stmts), std::move(proto));
+}
+
+static std::unique_ptr<Stmt> parseLetDeclaration(Parser& parser) {
+  parser.advance(); // eat 'let'
+  
+  std::string var_name = getCurrentTokenView(parser);
+  auto var_exp = std::make_unique<ExprVariable>(std::move(var_name));
+  if(!var_exp) {
+    std::cerr << "Couldnt create variable exp" << std::endl;
+    return nullptr;
+  }
+  parser.advance();
+  
+  if(getCurrentTokenType(parser) != TOKEN_EQUAL) {
+    std::cerr << "Expected '='" << std::endl;
+    return nullptr;
+  }
+
+  parser.advance(); // eat = 
+  
+  auto root = parseExpression(parser);
+  if(!root) {
+    std::cerr <<  "Failed to parse expression";
+    return nullptr;
+  }
+    
+  return std::make_unique<VarDeclaration>(std::move(var_exp), std::move(root));
+}
+
+static std::unique_ptr<Stmt> parseDeclaration(Parser& parser) {
+  switch(getCurrentTokenType(parser)){
+    case TOKEN_FUN:
+      return parseFunDeclaration(parser);
+    break;
+    case TOKEN_LET:
+      return parseLetDeclaration(parser);
+    break; 
+    default: return parseStatement(parser);
+  }  
 }
 
 void Parser::init(){ 
+  FILE* out = fopen("main.ssa", "w+");
+  if(!out) return;
   int stack_size = 0;
   while(current < tokens.size()) {   
-    parseDeclaration(*this);  
+    auto root = parseDeclaration(*this);  
+    if(!root) {
+      std::cerr << "ROOT IS NULL";
+      break;
+    }
+    root->generateCode(out, &stack_size);
     advance();
   }  
+  fclose(out);
 } 
 
 Token Parser::peek_next_token() {
