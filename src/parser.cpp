@@ -1,6 +1,7 @@
 #include "parser.h"
 #include <iostream>
 #include <memory>
+#include <optional>
 #include "compiler.h"
 
 Parser::Parser(std::string source): lexer(std::make_unique<Lexer>(source)), current(0) {
@@ -34,16 +35,8 @@ static std::unique_ptr<Expr> parseNumber(Parser& parser) {
   return std::move(num_expr);
 }
 
-static std::unique_ptr<Expr> parseIdentifier(Parser& parser) { 
-  std::string id_name = getTokenLiteral(parser.peek_current());
-  parser.advance();
-  if(getCurrentTokenType(parser) != TOKEN_LEFT_PAREN) { 
-   return std::make_unique<ExprVariable>(id_name);
-    
-  } 
-
-  parser.advance();
-  std::vector<std::unique_ptr<Expr>> args;
+static bool parseArgsExprs(Parser& parser, std::vector<std::unique_ptr<Expr>>& args) {
+  parser.advance(); // eat ( 
   if(getTokenType(parser.peek_current()) != TOKEN_RIGHT_PAREN) {
     while(true) {
       auto arg = parseExpression(parser);
@@ -51,7 +44,7 @@ static std::unique_ptr<Expr> parseIdentifier(Parser& parser) {
       if(arg) {
         args.push_back(std::move(arg));
       } else {
-        return nullptr;
+        return false;
       }  
 
       if(getTokenType(parser.peek_current()) == TOKEN_RIGHT_PAREN){
@@ -60,12 +53,28 @@ static std::unique_ptr<Expr> parseIdentifier(Parser& parser) {
       
       if(getTokenType(parser.peek_current()) != TOKEN_COLON) {
         std::cerr << "Expected , " << std::endl;
-        return nullptr;
+        return false;
       }
       parser.advance();
    }
   }
   parser.advance(); // eat )
+  return true;
+}
+
+static std::unique_ptr<Expr> parseIdentifier(Parser& parser) { 
+  std::string id_name = getTokenLiteral(parser.peek_current());
+  parser.advance();
+  if(getCurrentTokenType(parser) != TOKEN_LEFT_PAREN) { 
+   return std::make_unique<ExprVariable>(id_name);
+    
+  } 
+  std::vector<std::unique_ptr<Expr>> args;
+  if(!parseArgsExprs(parser,args)) {
+    std::cerr << "Couldn't parse Arguments" << std::endl;
+    return nullptr;
+  };
+
   if(getTokenType(parser.peek_current()) != TOKEN_SEMICOLON) {
     std::cerr << "Syntax error: Expected ;" << std::endl;
     return nullptr;
@@ -89,14 +98,9 @@ static std::unique_ptr<Expr> parseParen(Parser& parser) {
     std::cerr << "Expected )" << std::endl;
     return nullptr; 
   } 
-  //eat Token
+  //eat ')' Token
   parser.advance(); 
   return expression;
-}
-
-Token Parser::peek_current() {
-  if(current >= lexer->tokenize().size()) return NULL;
-  return lexer->tokenize()[current];
 }
 
 
@@ -110,8 +114,7 @@ static std::unique_ptr<Expr> parsePrimary(Parser& parser) {
     return parseNumber(parser);
     case TOKEN_LEFT_PAREN: 
     return parseParen(parser); 
-    default:
-    std::cerr << getCurrentTokenView(parser); 
+    default: 
     std::cerr << "Unexpected token" << std::endl;
     return nullptr;
   }
@@ -211,9 +214,7 @@ static std::unique_ptr<ExprProto> parseProto(Parser& parser) {
   return std::make_unique<ExprProto>(std::move(id_name), std::move(arguments));
 }
 
-static std::unique_ptr<Expr> parseFunDeclaration(Parser& parser) {
-  
-  
+static std::unique_ptr<Expr> parseFunDeclaration(Parser& parser) { 
   parser.advance(); // eat 'function'
   
   // parse prototype - function tag and args
@@ -300,6 +301,11 @@ void Parser::init(){
   }  
   fclose(out);
 } 
+
+Token Parser::peek_current() {
+  if(current >= lexer->tokenize().size()) return NULL;
+  return lexer->tokenize()[current];
+}
 
 Token Parser::peek_next_token() {
   if(current + 1 >= lexer->tokenize().size()) return NULL;

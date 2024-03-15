@@ -64,10 +64,7 @@ Lexer::Lexer(const std::string filename){
       ch = file.get();
       buffer += ch;
     }
-    buffer += '\0';
-    #ifdef DEBUG_FLAG
-    //std::cout << buffer;
-    #endif
+    buffer += '\0'; 
   }
  cursor = 0;
 }
@@ -82,9 +79,18 @@ char Lexer::peek() {
   return buffer[cursor];
 }
 
+char Lexer::peekNext() {
+  return buffer[cursor + 1];
+}
+
 void Lexer::advance() {
   cursor++;
 }
+
+std::vector<Token>& Lexer::tokenize() {
+  return tokens;
+}
+
 
 static void skipWhiteSpaces(Lexer* lexer) {
  char cursor = lexer->peekNext();
@@ -100,10 +106,6 @@ static bool isNumChar(char c) {
 
 static bool isAlphChar(char c) {
   return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
-}
-
-char Lexer::peekNext() {
-  return buffer[cursor + 1];
 }
 
 std::string readInteger(Lexer* lexer) {
@@ -208,10 +210,6 @@ void Lexer::init() {
    advance(); 
   }
 
-}
-
-std::vector<Token>& Lexer::tokenize() {
-  return tokens;
 }
 
 #ifdef DEBUG_FLAG
