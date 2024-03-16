@@ -36,7 +36,7 @@ class ExprVariable: public Expr {
   public:
     ExprVariable(std::string name):name(name){};
     virtual void generateCode(FILE* out,int* stack_size) override { 
-      fprintf(out, "%s", name.c_str()); 
+      fprintf(out, "  %%s%d =w copy %%%s\n", *stack_size , name.c_str()); 
       *stack_size += 1;
     } 
 };
@@ -114,7 +114,7 @@ class RetStmt: public Expr {
   RetStmt(std::unique_ptr<Expr> e): expr(std::move(e)) {};
   virtual void generateCode(FILE* out,int* stack_size){
     expr->generateCode(out, stack_size);
-    fprintf(out,"   ret %%s%d", *stack_size - 1);
+    fprintf(out,"\n   ret %%s%d\n", *stack_size - 1);
   };
 };
 
@@ -123,6 +123,9 @@ class PrintStmt: public Expr {
   public:
   PrintStmt(std::unique_ptr<Expr> e): expr(std::move(e)) {};
   virtual void generateCode(FILE* out,int* stack_size){
+    expr->generateCode(out, stack_size); 
+    fprintf(out, " call $printf(l $fmt_int, ...,w %%s%d)\n", *stack_size - 1);
+  
   };
 };
 
@@ -133,29 +136,38 @@ class FunDeclaration: public Expr {
   FunDeclaration(std::vector<std::unique_ptr<Expr>> stmts, std::unique_ptr<ExprProto> proto):
     stmts(std::move(stmts)), proto(std::move(proto)) {};
   virtual void generateCode(FILE* out,int* stack_size){
-    fprintf(out, "function w $%s(", proto->getName().c_str()); 
-    for(auto& arg: proto->getArgs()) {
-      fprintf(out, "%s", arg.c_str());
+    if(proto->getName().compare("main") == 0) {
+      fprintf(out, "export function w $main(");
+    } else {
+      fprintf(out, "function w $%s(", proto->getName().c_str()); 
     }
-    fprintf(out, " ){\n@start\n");
+    for(int i = 0; i < proto->getArgs().size();i++) {
+      fprintf(out, "w %%%s", proto->getArgs()[i].c_str());
+      if(i < proto->getArgs().size() - 1) {
+        fprintf(out, ",");
+      }
+    }
+    fprintf(out, "){\n@start\n");
 
-    for(auto& stmt: stmts) {
+    for(auto& stmt: stmts) { 
       stmt->generateCode(out, stack_size);
+    }
+    
+    if(proto->getName().compare("main") == 0) {
+      fprintf(out, "ret 0");
     }
     fprintf(out, "\n}\n");
   };
 };
 
 class VarDeclaration: public Expr {
-  std::unique_ptr<Expr>         var_exp;
+  std::string                   var_name;
   std::unique_ptr<Expr>         var_val;
   public:
-  VarDeclaration(std::unique_ptr<Expr> var_exp, std::unique_ptr<Expr> var_eval): var_exp(std::move(var_exp)), var_val(std::move(var_eval)) {}
+  VarDeclaration(std::string var_name, std::unique_ptr<Expr> var_eval): var_name(std::move(var_name)), var_val(std::move(var_eval)) {}
   virtual void generateCode(FILE* out,int* stack_size){
-  var_val->generateCode(out, stack_size);
-  fprintf(out, "    %%");
-  var_exp->generateCode(out, stack_size);
-  fprintf(out, " =w copy %%s%d", *stack_size - 2);
+  var_val->generateCode(out, stack_size); 
+  fprintf(out, "   %%%s =w copy %%s%d\n", var_name.c_str(), *stack_size - 1);  
  };
 };
 

@@ -15,6 +15,20 @@ static std::string getCurrentTokenView(Parser& parser) {
 static TokenType getCurrentTokenType(Parser& parser) {
   return getTokenType(parser.peek_current());
 }
+
+static bool expect(std::string token_view, Parser& parser) {
+  if(token_view.compare(getCurrentTokenView(parser)) == 0) {
+    return true;
+  }
+  return false;
+}
+
+static void consume(std::string token_view, Parser& parser) {
+  if(expect(token_view, parser)) {
+    parser.advance();
+  } 
+}
+
 /*
  * Function declaration
  * */
@@ -63,6 +77,7 @@ static bool parseArgsExprs(Parser& parser, std::vector<std::unique_ptr<Expr>>& a
 }
 
 static std::unique_ptr<Expr> parseIdentifier(Parser& parser) { 
+  
   std::string id_name = getTokenLiteral(parser.peek_current());
   parser.advance();
   if(getCurrentTokenType(parser) != TOKEN_LEFT_PAREN) { 
@@ -74,19 +89,16 @@ static std::unique_ptr<Expr> parseIdentifier(Parser& parser) {
     std::cerr << "Couldn't parse Arguments" << std::endl;
     return nullptr;
   };
-
-  if(getTokenType(parser.peek_current()) != TOKEN_SEMICOLON) {
-    std::cerr << "Syntax error: Expected ;" << std::endl;
-    return nullptr;
-  }
-  parser.advance();
+  
+  
+  consume(";", parser); 
   return std::make_unique<ExprFunCall>(id_name, std::move(args));
 }
 
 // paren expression := "(" + expression + ")"
 static std::unique_ptr<Expr> parseParen(Parser& parser) {
   
-  parser.advance(); // eat  ( current token
+  consume("(", parser); 
   auto expression = parseExpression(parser);
   if(!expression) { 
     return nullptr;
@@ -99,22 +111,22 @@ static std::unique_ptr<Expr> parseParen(Parser& parser) {
     return nullptr; 
   } 
   //eat ')' Token
-  parser.advance(); 
+  consume(")", parser); 
   return expression;
 }
 
 
 static std::unique_ptr<Expr> parsePrimary(Parser& parser) {
   TokenType type = getCurrentTokenType(parser); 
-  switch(type) { 
-    case TOKEN_PRINT:
+  switch(type) {    
     case TOKEN_IDENTIFIER:
     return parseIdentifier(parser);
     case TOKEN_INTEGER:
     return parseNumber(parser);
     case TOKEN_LEFT_PAREN: 
     return parseParen(parser); 
-    default: 
+    default:
+    std::cout << getCurrentTokenView(parser); 
     std::cerr << "Unexpected token" << std::endl;
     return nullptr;
   }
@@ -125,12 +137,12 @@ static std::unique_ptr<Expr> parseMul(Parser& parser) {
   TokenType type = getCurrentTokenType(parser);
   switch(type) {
     case TOKEN_PLUS: {
-      parser.advance();                       
+      consume("+", parser);       
       auto RHS = parseExpression(parser);
       return std::make_unique<ExprBinary>(BINOP_PLUS, std::move(LHS), std::move(RHS));
                      }
     case TOKEN_MULT:{
-      parser.advance();
+      consume("*", parser);
       auto RHS = parseExpression(parser);
       return std::make_unique<ExprBinary>(BINOP_MULT, std::move(LHS), std::move(RHS));
                     } 
@@ -146,12 +158,13 @@ static std::unique_ptr<Expr> parseExpression(Parser& parser) {
 }
 
 static std::unique_ptr<Expr> parseReturnStatement(Parser& parser) {
-  parser.advance(); // eat return
+  consume("return", parser); 
   auto root = parseExpression(parser);
   if(!root) {
     std::cerr << "Couldnt parse expression" << std::endl;
     return nullptr;
   }
+  consume(";", parser); 
   
   return std::make_unique<RetStmt>(std::move(root));
 }
@@ -162,6 +175,7 @@ static std::unique_ptr<Expr> parseExprStatement(Parser& parser) {
       std::cerr << "Root is null expr statement" << std::endl;
       return nullptr;
     }
+  consume(";", parser);
   return std::make_unique<ExprStmt>(std::move(root));    
 }
 
@@ -170,19 +184,22 @@ static std::unique_ptr<Expr> parseExprStatement(Parser& parser) {
 //  expression;
 static std::unique_ptr<Expr> parseStatement(Parser& parser) {
   if(getCurrentTokenType(parser) == TOKEN_PRINT) {
-    parser.advance(); 
+    consume("print", parser); 
     auto root = parseExpression(parser);
     if(!root) {
       std::cerr << "Root is null" << std::endl;
       return nullptr;
     }
+    consume(";", parser);
     return std::make_unique<PrintStmt>(std::move(root)); 
     
   } else if(getCurrentTokenType(parser) == TOKEN_RETURN) {
-    
+     
     return parseReturnStatement(parser);
   } else {
-    return parseExprStatement(parser); 
+    auto root = parseExpression(parser); 
+    consume(";", parser);
+    return root;
   }
 }
 
@@ -203,18 +220,23 @@ static std::unique_ptr<ExprProto> parseProto(Parser& parser) {
   }
   
   while(getCurrentTokenType(parser) != TOKEN_RIGHT_PAREN) {
+    if(getCurrentTokenType(parser) != TOKEN_IDENTIFIER) {
+    parser.advance();
+    continue;
+    
+    }
     auto arg = getCurrentTokenView(parser);  
+    
     arguments.push_back(arg);
-    parser.advance(); // eat var
-    parser.advance(); // eat ','
-  }
+    parser.advance();        
+    }
 
   parser.advance(); // eat ')'
 
   return std::make_unique<ExprProto>(std::move(id_name), std::move(arguments));
 }
 
-static std::unique_ptr<Expr> parseFunDeclaration(Parser& parser) { 
+static std::unique_ptr<Expr> parseFunDeclaration(Parser& parser) {  
   parser.advance(); // eat 'function'
   
   // parse prototype - function tag and args
@@ -225,51 +247,40 @@ static std::unique_ptr<Expr> parseFunDeclaration(Parser& parser) {
     }
  
    // parse block statement - '{' + declaration + '}'
-    parser.advance(); // eat '{'
+   consume("{", parser); 
     
     std::vector<std::unique_ptr<Expr>> stmts;
     while(getCurrentTokenType(parser) != TOKEN_RIGHT_BRACKET){
+      
       auto root = parseDeclaration(parser);
       if(!root) {
         std::cerr << "Couldnt parse statement" << std::endl;
         return nullptr;
       }
-      stmts.push_back(std::move(root));
-      
-      parser.advance(); 
+      stmts.push_back(std::move(root));       
+       
     }                
 
-    parser.advance(); // eat '}'  
+    consume("}", parser);  
    // compile function declaration
   return std::make_unique<FunDeclaration>(
       std::move(stmts), std::move(proto));
 }
 
 static std::unique_ptr<Expr> parseLetDeclaration(Parser& parser) {
-  parser.advance(); // eat 'let'
+ consume("let", parser); 
   
   std::string var_name = getCurrentTokenView(parser);
-  auto var_exp = std::make_unique<ExprVariable>(std::move(var_name));
-  if(!var_exp) {
-    std::cerr << "Couldnt create variable exp" << std::endl;
-    return nullptr;
-  }
-  parser.advance();
-  
-  if(getCurrentTokenType(parser) != TOKEN_EQUAL) {
-    std::cerr << "Expected '='" << std::endl;
-    return nullptr;
-  }
-
-  parser.advance(); // eat = 
-  
+  consume(var_name, parser); 
+   
+  consume("=", parser); 
   auto root = parseExpression(parser);
   if(!root) {
     std::cerr <<  "Failed to parse expression";
     return nullptr;
   }
-    
-  return std::make_unique<VarDeclaration>(std::move(var_exp), std::move(root));
+   consume(";", parser); 
+  return std::make_unique<VarDeclaration>(std::move(var_name), std::move(root));
 }
 
 
@@ -289,15 +300,16 @@ static std::unique_ptr<Expr> parseDeclaration(Parser& parser) {
 void Parser::init(){ 
   FILE* out = fopen("main.ssa", "w+");
   if(!out) return;
-  int stack_size = 0;
+  fprintf(out , "data $fmt_int = {b\"%%d\", b 0}\n"); 
   while(current < lexer->tokenize().size()) {   
+    int stack_size = 0;
     auto root = parseDeclaration(*this);  
     if(!root) {
       std::cerr << "ROOT IS NULL";
       break;
     }
     root->generateCode(out, &stack_size);
-    advance();
+    
   }  
   fclose(out);
 } 
