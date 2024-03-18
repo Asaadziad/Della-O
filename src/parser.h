@@ -7,7 +7,7 @@
 
 
 class Parser {
-  
+  std::unique_ptr<Expr> root;  
   public:
     Parser(std::string source);
     void init();

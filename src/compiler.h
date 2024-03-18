@@ -1,12 +1,11 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
-#include <memory>
-#include <string>
 #include "expressions.h"
+#include <cstdio>
+#include <string>
 
+void gen_primary(std::unique_ptr<Expr> exp, FILE* out, int* stack_size);
 
-void compileLetDeclaration(std::unique_ptr<Expr> root, std::string var_name);
-void compile(std::unique_ptr<Expr> root);
 
 #endif

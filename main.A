@@ -1,9 +1,8 @@
-function add(a,b) {
-  return a+b;
+function add() {
+  print(33+33);
 }
 
 function main() {
-  let a = 30 * 2;
-  let x = 9 + a;
-  print(x);
+  
+  print(35+34);
 }

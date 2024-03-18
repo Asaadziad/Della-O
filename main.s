@@ -6,18 +6,6 @@ fmt_int:
 /* end data */
 
 .text
-add:
-	pushq %rbp
-	movq %rsp, %rbp
-	movl %edi, %eax
-	addl %esi, %eax
-	leave
-	ret
-.type add, @function
-.size add, .-add
-/* end function add */
-
-.text
 .globl main
 main:
 	pushq %rbp
