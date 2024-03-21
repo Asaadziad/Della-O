@@ -1,3 +1,5 @@
-let j = 5 + 5;
-let x = 69;
-let z = j + x;
+let j : int = 5 + 5;
+let x : int = 69;
+let z : int = j + x;
+
+

@@ -9,6 +9,12 @@
 #include <iostream>
 #include <variant>
 
+
+typedef enum {
+  VOID,
+  INT,
+} LType;
+
 typedef enum {
   BINOP_PLUS,
   BINOP_MULT,
@@ -25,6 +31,7 @@ typedef enum {
   EXPR_FUNDEC,
   
   EXPR_FUNCALL,
+  EXPR_RETURN,
 
   EXPR_PROGRAM,
 } ExprType;
@@ -52,13 +59,12 @@ class NumberExpr: public Expr {
 
 class VarExpr: public Expr {
   std::string id_name;
-  bool        is_initialized;
+  LType       var_type;
   public:
-  VarExpr(std::string id_name):id_name(id_name),is_initialized(false){};
+  VarExpr(std::string id_name):id_name(id_name){};
+  void setVarType(LType type) { var_type = type;};
   virtual void generateCode() override {
-    
-      printf("%%%s", id_name.c_str());
-    
+      printf("%%%s", id_name.c_str()); 
   };
    virtual ExprType getType() override {
       return EXPR_VAR;
@@ -97,6 +103,29 @@ class BinaryExpr : public Expr {
   };
 };
 
+class ReturnStatement: public Expr {
+  std::unique_ptr<Expr> expr;
+  LType                 return_type;
+  public:
+  ReturnStatement(std::unique_ptr<Expr> expr,
+                  LType                 type):
+                  expr(std::move(expr)), return_type(type) {};
+  virtual void generateCode() override {
+    switch(return_type) {
+      case INT:
+        printf("%%return =w ");
+        expr->generateCode(); 
+        break;
+      case VOID:
+        printf("ret\n");
+        break;
+    } 
+  };
+  virtual ExprType getType() override {
+    return EXPR_RETURN;
+  };
+};
+
 class Declaration: public Expr {
   std::vector<std::unique_ptr<Expr>> stmts;
   ExprType dcl_type;
@@ -106,7 +135,7 @@ class Declaration: public Expr {
    switch(dcl_type) {
     case EXPR_VARDEC:
       stmts[0]->generateCode();
-      printf(" =w ");
+      printf(" =w "); // TODO:://  switch depeneding on var type
       stmts[1]->generateCode();
       printf("\n");
       break;

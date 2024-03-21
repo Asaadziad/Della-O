@@ -37,10 +37,11 @@ static bool expect(std::string token_view, Parser& parser) {
 }
 
 static void consume(std::string token_view, Parser& parser) {
+  
   if(expect(token_view, parser)) {
     parser.advance();
-  } else {
-    PANIC("Syntax error: expected '%s' ", token_view.c_str());
+  } else {  
+   PANIC("Syntax error: expected '%s' ", token_view.c_str());
   } 
 }
 
@@ -99,12 +100,8 @@ static std::unique_ptr<Expr> parse_binary(Parser& parser) {
     }
     return std::make_unique<BinaryExpr>(std::move(lhs),std::move(rhs), BINOP_MULT);
   }
-  default: break;
-
-  
- }
-
-  
+  default: break;  
+ }  
  return std::move(lhs); 
 }
 
@@ -112,21 +109,57 @@ static std::unique_ptr<Expr> parse_expression(Parser& parser) {
   return parse_binary(parser);
 }
 
+
+
 // statement := expression;
 static std::unique_ptr<Expr> parse_statement(Parser& parser) {
-  auto expr = parse_expression(parser);
-  consume(";", parser);
-  return std::move(expr);
+  TokenType type = getCurrentTokenType(parser);
+  switch(type) {
+    case TOKEN_RETURN:
+      {
+        consume("return", parser);
+        auto expr = parse_expression(parser);        
+        consume(";", parser);
+        return std::move(expr);
+      }
+    default:
+      {
+        auto expr = parse_expression(parser);
+        consume(";", parser);
+        return std::move(expr);            
+      };
+  } 
+}
+
+static LType parse_type(Parser& parser) {
+  consume(":", parser); // consume the type declarator
+  std::string current_view = getCurrentTokenView(parser);
+  parser.advance(); 
+  if(current_view.compare("int") == 0) {
+    return INT;
+  } else { 
+    return VOID;
+  }
 }
 
 static std::unique_ptr<Expr> parse_var_declaration(Parser& parser) {
   consume("let", parser);
   std::vector<std::unique_ptr<Expr>> stmts;
-  auto  var = parse_primary(parser);
+  auto  var_name = getCurrentTokenView(parser);
+  parser.advance(); 
+  LType var_type = parse_type(parser);
+  if(!var_type) {
+    PANIC("Expected type declaration");
+  }
+  
+  auto  var = std::make_unique<VarExpr>(var_name);
   if(!var) {
-    PANIC("Couldn't parse variable name");
-  } 
+    PANIC("Couldn't parse variable");
+  }
+  var->setVarType(var_type);
+
   stmts.push_back(std::move(var));
+  
   consume("=", parser);
   auto exp = parse_statement(parser);
   if(!exp) {
