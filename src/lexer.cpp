@@ -75,11 +75,11 @@ Lexer::~Lexer() {
   }
 }
 
-char Lexer::peek() {
+inline constexpr char Lexer::peek() {
   return buffer[cursor];
 }
 
-char Lexer::peekNext() {
+inline constexpr char Lexer::peekNext() {
   return buffer[cursor + 1];
 }
 

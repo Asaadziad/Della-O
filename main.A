@@ -1,8 +1,3 @@
-function add() {
-  print(33+33);
-}
-
-function main() {
-  
-  print(35+34);
-}
+let j = 5 + 5;
+let x = 69;
+let z = j + x;

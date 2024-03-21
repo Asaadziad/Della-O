@@ -57,10 +57,10 @@ class Lexer {
   Lexer(const std::string filename);
   ~Lexer(); 
   void init();
-  char peek();
+  constexpr inline char peek();
   std::vector<Token>& tokenize();
   void advance();
-  char peekNext();
+  constexpr inline char peekNext();
   void consume_current_token();
   Token peek_token();
   Token peek_next_token(); 
