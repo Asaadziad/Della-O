@@ -10,3 +10,7 @@ This is an image of the general architecture of this project
 Function and variable declarations:
 
 ![Screenshot from 2024-03-16 12-20-56](https://github.com/Asaadziad/Alang/assets/108868994/d60a7fe8-5ae0-47fb-bdda-19cae8e63804)
+
+Now declaring variable type is a must or the compiler will panic:
+
+![Screenshot from 2024-03-21 17-39-36](https://github.com/Asaadziad/Alang/assets/108868994/db73b94a-b88c-4f17-8081-fb39ca511250)
