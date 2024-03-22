@@ -1,5 +1,5 @@
-let j : int = 5 + 5;
-let x : int = 69;
-let z : int = j + x;
+func main(x : int, y : int) : int  {
+  let x : int  = 5;  
 
-
+  return 6;
+} 

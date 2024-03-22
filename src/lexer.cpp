@@ -193,7 +193,7 @@ void Lexer::init() {
 
    if(isAlphChar(current)) {
       std::string ident = readIdent(this);
-      if(ident.compare("function") == 0) {
+      if(ident.compare("func") == 0) {
         tokens.push_back(makeToken(ident, TOKEN_FUN));
       } else if(ident.compare("let") == 0) {
         tokens.push_back(makeToken(ident, TOKEN_LET));

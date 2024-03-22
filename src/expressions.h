@@ -61,8 +61,7 @@ class VarExpr: public Expr {
   std::string id_name;
   LType       var_type;
   public:
-  VarExpr(std::string id_name):id_name(id_name){};
-  void setVarType(LType type) { var_type = type;};
+  VarExpr(std::string id_name, LType type):id_name(id_name), var_type(type){}; 
   virtual void generateCode() override {
       printf("%%%s", id_name.c_str()); 
   };
@@ -72,7 +71,7 @@ class VarExpr: public Expr {
 };
 
 static void generateAdd(std::unique_ptr<Expr>& lhs,
-                        std::unique_ptr<Expr>& rhs) {
+                        std::unique_ptr<Expr>& rhs) { 
   printf("add ");
   lhs->generateCode();
   printf(", ");
@@ -123,6 +122,54 @@ class ReturnStatement: public Expr {
   };
   virtual ExprType getType() override {
     return EXPR_RETURN;
+  };
+};
+
+
+//  function name : string
+//  arguments : var expression
+//  function body : '{' + declarations + '}'
+class FunDeclaration: public Expr {
+  std::string name;
+  std::vector<std::unique_ptr<Expr>> args;
+  std::vector<std::unique_ptr<Expr>> decls;
+  LType                              type;
+  public:
+  FunDeclaration(std::string name,
+                std::vector<std::unique_ptr<Expr>> a,
+                std::vector<std::unique_ptr<Expr>> d,
+                LType type):
+                name(std::move(name)),
+                args(std::move(a)),
+                decls(std::move(d)),
+                type(type) {};
+  virtual void generateCode() override {
+    printf("function");
+    switch(type){
+      case INT:
+        printf(" w");  
+      break; 
+      default: break;
+    }
+    printf(" $%s(", name.c_str());
+    bool i = true;
+    for(auto& arg: args) {
+      if(!i) {
+        printf(", ");
+      }
+      arg->generateCode();
+      i = false;
+    }
+    printf(") {\n");
+    for(auto& dcl: decls) {
+      dcl->generateCode();
+      printf("\n");
+    }
+    printf("\n}");
+  
+  };
+  virtual ExprType getType() override {
+    return EXPR_FUNDEC;
   };
 };
 

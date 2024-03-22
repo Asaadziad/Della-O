@@ -41,7 +41,7 @@ static void consume(std::string token_view, Parser& parser) {
   if(expect(token_view, parser)) {
     parser.advance();
   } else {  
-   PANIC("Syntax error: expected '%s' ", token_view.c_str());
+   PANIC("Syntax error: expected '%s', found instead: '%s' ", token_view.c_str(), getCurrentTokenView(parser).c_str());
   } 
 }
 
@@ -49,12 +49,13 @@ static void consume(std::string token_view, Parser& parser) {
  * Function Declarations
  * */
 static std::unique_ptr<Expr> parse_expression(Parser& parser);
-
+static std::unique_ptr<Expr> parse_declaration(Parser& parser);
+static LType parse_type(Parser& parser);
 /*
  * End
  * */
 static std::unique_ptr<Expr> parse_primary(Parser& parser) {
-  switch(getCurrentTokenType(parser)) {
+  switch(getCurrentTokenType(parser)) { 
     case TOKEN_INTEGER:{ 
       
          double v = std::stoi(getCurrentTokenView(parser));    
@@ -63,10 +64,13 @@ static std::unique_ptr<Expr> parse_primary(Parser& parser) {
       parser.advance();
       return std::move(root);
                        } 
-    case TOKEN_IDENTIFIER:{
-      auto root = std::make_unique<VarExpr>(getCurrentTokenView(parser));
+    case TOKEN_IDENTIFIER: {
+      std::string var_name = getCurrentTokenView(parser);
+      parser.advance(); 
+      auto type = parse_type(parser); 
+      auto root = std::make_unique<VarExpr>(var_name, type);
       
-      parser.advance();
+      
       return std::move(root);
                           }
     default:{ 
@@ -136,27 +140,56 @@ static LType parse_type(Parser& parser) {
   std::string current_view = getCurrentTokenView(parser);
   parser.advance(); 
   if(current_view.compare("int") == 0) {
+    
     return INT;
   } else { 
+    
     return VOID;
   }
+}
+
+static std::unique_ptr<Expr> parse_func_declaration(Parser& parser) {
+  consume("func", parser);
+  
+  std::string fun_name = getCurrentTokenView(parser);
+  parser.advance();
+  std::vector<std::unique_ptr<Expr>> args;
+  if(expect("(", parser)) {
+    parser.advance(); 
+    while(getCurrentTokenType(parser) != TOKEN_RIGHT_PAREN) { 
+      auto root = parse_expression(parser);
+      if(!root) {
+        PANIC("Couldn't parse argument");
+      }
+      if(getCurrentTokenType(parser) == TOKEN_COMMA) { 
+        parser.advance();
+      } 
+      args.push_back(std::move(root));
+      
+    }
+    consume(")", parser);
+  } 
+  
+  
+  auto type = parse_type(parser);
+  consume("{", parser);
+  std::vector<std::unique_ptr<Expr>> dcls;
+  while(getCurrentTokenType(parser) != TOKEN_RIGHT_BRACKET) {
+    auto root = parse_declaration(parser);
+    if(!root) {
+      PANIC("Couldn't parse declaration inside function");
+    }
+    dcls.push_back(std::move(root));
+  }
+  consume("}", parser);
+
+  return std::make_unique<FunDeclaration>(std::move(fun_name), std::move(args), std::move(dcls), type);
 }
 
 static std::unique_ptr<Expr> parse_var_declaration(Parser& parser) {
   consume("let", parser);
   std::vector<std::unique_ptr<Expr>> stmts;
-  auto  var_name = getCurrentTokenView(parser);
-  parser.advance(); 
-  LType var_type = parse_type(parser);
-  if(!var_type) {
-    PANIC("Expected type declaration");
-  }
-  
-  auto  var = std::make_unique<VarExpr>(var_name);
-  if(!var) {
-    PANIC("Couldn't parse variable");
-  }
-  var->setVarType(var_type);
+  auto var = parse_expression(parser);
 
   stmts.push_back(std::move(var));
   
@@ -174,7 +207,9 @@ static std::unique_ptr<Expr> parse_var_declaration(Parser& parser) {
 static std::unique_ptr<Expr> parse_declaration(Parser& parser) {
   if(getCurrentTokenType(parser) == TOKEN_LET) {
     return parse_var_declaration(parser);
-  } else {
+  } else if(getCurrentTokenType(parser) == TOKEN_FUN) {
+    return parse_func_declaration(parser);
+  }  else {
     return parse_statement(parser);
   }
 }
