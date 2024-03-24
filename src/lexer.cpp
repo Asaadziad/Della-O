@@ -138,6 +138,23 @@ std::string readIdent(Lexer* lexer) {
   return ident;
 }
 
+std::string readString(Lexer* lexer) {
+  lexer->advance();
+  std::string ident = "";
+  while(true) {
+    char c = lexer->peek();
+    ident += c;
+    
+    lexer->advance();
+    if(lexer->peek() == '"') {
+      
+      break;
+    } 
+  }
+   
+  return ident;
+}
+
 void Lexer::init() {
   while(peek() != '\0') {
    char current = peek();
@@ -147,6 +164,10 @@ void Lexer::init() {
         tokens.push_back(makeToken(";", TOKEN_SEMICOLON));
         break;
      case ':':
+        if(peekNext() == '=') {
+         tokens.push_back(makeToken(":=", TOKEN_INITIALZE));
+         break;
+        }
         tokens.push_back(makeToken(":", TOKEN_COLON));
         break;
      case ',':
@@ -182,6 +203,11 @@ void Lexer::init() {
         break;
      case '*':
         tokens.push_back((makeToken("*", TOKEN_MULT)));
+        break;
+     case '"':{
+        std::string input = readString(this);
+        tokens.push_back((makeToken(input, TOKEN_STRING)));
+              }
         break;   
     default:break;
    }

@@ -5,7 +5,7 @@
 #include <cstdio>
 #include <string>
 
-void gen_primary(std::unique_ptr<Expr> exp, FILE* out, int* stack_size);
 
+void compile(std::unique_ptr<Expr> exp);
 
 #endif

@@ -1,5 +1,0 @@
-func main(x : int, y : int) : int  {
-  let x : int  = 5;  
-
-  return 6;
-} 

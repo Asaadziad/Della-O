@@ -2,8 +2,7 @@
 #include "parser.h"
 
 int main() {
-  Parser parser("main.A");
+  Parser parser("main.della");
   parser.init();  
-
   return 0;
 }
