@@ -1,3 +1,14 @@
-let x : str = "hello";  
-print(x);
+func add(x : int, y : int) : int {
+  return x+y;
+}
 
+func main() {
+  let x : int = 5;
+  let y : int = 9;
+  let z : int  = add(16, 9);
+
+  
+  print("hello");
+  
+  print(z);  
+}

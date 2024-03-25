@@ -4,7 +4,8 @@
 #include <optional>
 #include "compiler.h"
 
-
+std::map<std::string, bool> globals;
+std::map<std::string, LType> globals_types;
 Parser::Parser(std::string source): lexer(std::make_unique<Lexer>(source)), current(0) {
   lexer->init();
 }
@@ -244,17 +245,21 @@ static LType parse_type(Parser& parser) {
   }
 }
 
-static std::unique_ptr<Expr> parse_block(Parser& parser){
+static std::unique_ptr<Expr> parse_block(Parser& parser, std::vector<std::string> arg_names){
   consume("{", parser);
   std::vector<std::unique_ptr<Expr>> dcls;
-  while(getCurrentTokenType(parser) != TOKEN_RIGHT_BRACKET) {
+  std::map<std::unique_ptr<Expr>, bool> locals;
+  while(getCurrentTokenType(parser) != TOKEN_RIGHT_BRACKET && getCurrentTokenType(parser) != TOKEN_RETURN) {
+    
     auto root = parse_declaration(parser);
     if(!root) {
       PANIC("Couldn't parse declaration inside function");
     }
+ 
     dcls.push_back(std::move(root));
   }
-  consume("}", parser);
+  
+  
   return std::make_unique<Block>(std::move(dcls));
 }
 
@@ -264,12 +269,18 @@ static std::unique_ptr<Expr> parse_func_declaration(Parser& parser) {
   consume("func", parser);
   
   std::string fun_name = getCurrentTokenView(parser);
+  globals[fun_name] = 1;
   parser.advance();
-  std::vector<std::unique_ptr<Expr>> args;
+  std::vector<std::unique_ptr<VarExpr>> args;
+  std::vector<std::string> arg_names;
   if(expect("(", parser)) {
     parser.advance(); 
     while(getCurrentTokenType(parser) != TOKEN_RIGHT_PAREN) { 
-      auto root = parse_expression(parser);
+      auto var_name = getCurrentTokenView(parser);
+      parser.advance();
+      arg_names.push_back(var_name);
+      auto var_type = parse_type(parser);
+      auto root = std::make_unique<VarExpr>(std::move(var_name), var_type);
       if(!root) {
         PANIC("Couldn't parse argument");
       }
@@ -284,9 +295,22 @@ static std::unique_ptr<Expr> parse_func_declaration(Parser& parser) {
   
   
   auto type = parse_type(parser);
-  auto block = parse_block(parser); 
-
-  return std::make_unique<FunDeclaration>(std::move(fun_name), std::move(args), std::move(block), type);
+  globals_types[fun_name] = type;
+  auto block = parse_block(parser, arg_names); 
+  if(type != VOID) {
+    consume("return", parser);
+    auto return_stmt_e = parse_expression(parser);
+    consume(";", parser);
+    auto return_stmt = std::make_unique<ReturnStatement>(std::move(return_stmt_e), type);
+    consume("}", parser); // cleanup later
+    return std::make_unique<FunDeclaration>(std::move(fun_name), std::move(args), std::move(block),std::move(return_stmt) ,type);
+  } else {
+    consume("}", parser);
+    return std::make_unique<FunDeclaration>(std::move(fun_name), std::move(args), std::move(block),nullptr ,type); 
+  } 
+                          
+                        
+  
 }
 
 static std::unique_ptr<Expr> parse_var_declaration(Parser& parser) {
@@ -328,6 +352,7 @@ static std::unique_ptr<Expr> parse_program(Parser& parser) {
 void Parser::init(){  
   FILE* out = fopen("main.ssa", "w+");
   if(!out) exit(1);
+  fprintf(out, "data $fmt_int = {b \"%%d\", b 0}\n");
   auto root = parse_program(*this);   
   int stack_size = 0;
   root->generateCode(out, &stack_size);

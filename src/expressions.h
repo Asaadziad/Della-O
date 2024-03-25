@@ -9,13 +9,15 @@
 #include <iostream>
 #include <map>
 
+extern std::map<std::string, bool>  globals;
+
 typedef enum {
   VOID,
   INT,
   STRING,
   BOOL,
 } LType;
-
+extern std::map<std::string, LType> globals_types;
 typedef enum {
   BINOP_PLUS,
   BINOP_MINUS,
@@ -46,11 +48,21 @@ typedef enum {
 class Expr {
   public:
   virtual ~Expr() = default; 
-  virtual ExprType getType() = 0;
-  virtual void generateCode(FILE* out, int* stack_size) = 0;
+  virtual ExprType getType() = 0; 
+  virtual void generateCode(FILE* out, int* stack_size) = 0; 
 };
 
-class StringExpr: public Expr {
+class DataExpr {
+  public:
+  virtual LType    getDataType() = 0;
+};
+
+class NamedExpr {
+  public:
+  virtual std::string getName() = 0;
+};
+
+class StringExpr: public Expr, public DataExpr {
   std::string val;
   public:
   StringExpr(std::string val): val(std::move(val)) {};
@@ -71,10 +83,13 @@ class StringExpr: public Expr {
   };
   virtual ExprType getType() override {
     return EXPR_STRING;
-  }
+  };
+  virtual LType getDataType() override {
+    return STRING;
+  };
 };
 
-class NumberExpr: public Expr { 
+class NumberExpr: public Expr, public DataExpr { 
   double val;
   public:
     NumberExpr(double val): val(val) {};  
@@ -85,9 +100,12 @@ class NumberExpr: public Expr {
         fprintf(out, "%%s%d =w copy %d\n", *stack_size,(int)val);
         *stack_size += 1;
     };
+    virtual LType getDataType() override {
+      return INT;
+    };
 };
 
-class VarExpr: public Expr {
+class VarExpr: public Expr, public DataExpr, public NamedExpr {
   std::string id_name;
   LType       var_type;
   public:
@@ -96,41 +114,64 @@ class VarExpr: public Expr {
   void setVarType(LType type) { var_type = type; };   
    virtual ExprType getType() override {
       return EXPR_VAR;
-    }; 
-  virtual void generateCode(FILE* out, int* stack_size) override {
-      fprintf(out,"%%%s", id_name.c_str());
-      
+    };
+   virtual LType getDataType() override {
+    return var_type;
+   }; 
+   virtual std::string getName() override {
+    return id_name;
+   };
+  virtual void generateCode(FILE* out, int* stack_size) override {      
+    fprintf(out,"%%%s", id_name.c_str());      
   };
-
+  LType getReturnType() {
+    return var_type;
+  };
 };
 
-class FunCall: public Expr {
+class FunCall: public Expr, public DataExpr {
   std::string name;
   std::vector<std::unique_ptr<Expr>> args;
+  LType return_type;
   public:
   FunCall(std::string name, std::vector<std::unique_ptr<Expr>> args): name(name), args(std::move(args)){};
    virtual ExprType getType() override {
       return EXPR_FUNCALL;
     };
+   virtual LType getDataType() override {
+    return return_type;
+   }
   virtual void generateCode(FILE* out, int* stack_size) override {
+    if(!globals[name]){ 
+      printf("Compile error: undeclared function '%s'", name.c_str()); 
+      return;
+    }
+
     std::vector<int> fixed_args;
     for(auto& arg: args) {
+      if(arg->getType() == EXPR_VAR) {
+        continue;
+      };
       arg->generateCode(out, stack_size);
-      fixed_args.push_back(*stack_size);
+      fixed_args.push_back(*stack_size - 1);
     }
+    if(globals_types[name] != VOID) {
+      char type_c = 'w';
+      fprintf(out, "%%s%d =%c ", *stack_size - 1 ,type_c);
+    }  
     fprintf(out, "call $%s(", name.c_str());
     for(int i = 0; i < fixed_args.size(); i++) {
       if(i>0) {
         fprintf(out, ", ");
       }
-      fprintf(out, "%%s%d", fixed_args[i]);
+      fprintf(out, "w %%s%d", fixed_args[i]);
     }
     fprintf(out, ")\n");
   };
 
 };
 
-class BinaryExpr : public Expr {
+class BinaryExpr : public Expr, public DataExpr {
   std::unique_ptr<Expr> lhs;
   std::unique_ptr<Expr> rhs;
   BinopType             op;
@@ -144,6 +185,9 @@ class BinaryExpr : public Expr {
   
   virtual ExprType getType() override {
       return EXPR_BINARY;
+  };
+  virtual LType getDataType() override {
+    return INT;
   };
   virtual void generateCode(FILE* out, int* stack_size) override {
     switch(op) {
@@ -207,8 +251,11 @@ class ReturnStatement: public Expr {
   virtual ExprType getType() override {
     return EXPR_RETURN;
   };
-  virtual void generateCode(FILE* out, int* stack_size) override {};
-
+  virtual void generateCode(FILE* out, int* stack_size) override {
+    expr->generateCode(out, stack_size);
+    fprintf(out, "\nret %%s%d\n", *stack_size - 1);
+  };
+  
 };
 
 class PrintStatement: public Expr {
@@ -219,28 +266,57 @@ class PrintStatement: public Expr {
     return EXPR_FUNCALL;
   };
   virtual void generateCode(FILE* out, int* stack_size) override {
+    if(string_expr->getType() == EXPR_VAR) { 
+      auto tmp  = string_expr.release(); 
+      VarExpr* v = static_cast<VarExpr*> (tmp); 
+      char type_c = ' ';
+      switch(v->getDataType()) { 
+        case STRING:
+          {
+           type_c = 'l';
+           fprintf(out, "call $printf(%c %%%s)",type_c, v->getName().c_str());
+          } 
+         break;
+        default:
+         {
+           type_c = 'w';
+           fprintf(out, "call $printf(l $fmt_int, %c %%%s)",type_c, v->getName().c_str());
+          }
+         
+         
+         break;
+      }
+   
+      
+      
+      
+      
+    } else {
     string_expr->generateCode(out, stack_size);
     fprintf(out, "call $printf(l %%s%d)\n", *stack_size - 1);
-  };
+    }
+  }; 
 };
 
 
 class Block : public Expr {
   std::map<std::unique_ptr<Expr> ,bool> locals;
-  std::vector<std::unique_ptr<Expr>> decls; 
+  std::vector<std::unique_ptr<Expr>> decls;  
   public:
-  Block(std::vector<std::unique_ptr<Expr>> decls): decls(std::move(decls)){};
+  Block(std::vector<std::unique_ptr<Expr>> decls
+        ): decls(std::move(decls)){};
   
   virtual ExprType getType() override {
     return EXPR_BLOCK;
   };
   virtual void generateCode(FILE* out, int* stack_size) override {
     for(auto& decl : decls) {
-      decl->generateCode(out, stack_size);
-      
+      if(decl->getType() == EXPR_VAR) {
+        
+      }
+      decl->generateCode(out, stack_size); 
     }
-  };
-
+  }; 
 };
 
 
@@ -249,24 +325,68 @@ class Block : public Expr {
 //  function body : block 
 class FunDeclaration: public Expr {
   std::string name;
-  std::vector<std::unique_ptr<Expr>> args;
+  std::vector<std::unique_ptr<VarExpr>> args; 
   std::unique_ptr<Expr>              block; 
+  std::unique_ptr<ReturnStatement> return_stmt;
   LType                              type;
   public:
   FunDeclaration(std::string name,
-                std::vector<std::unique_ptr<Expr>> a,
+                std::vector<std::unique_ptr<VarExpr>> a, 
                 std::unique_ptr<Expr> block,
+                std::unique_ptr<ReturnStatement> return_stmt,
                 LType type):
                 name(std::move(name)),
-                args(std::move(a)),
+                args(std::move(a)), 
                 block(std::move(block)),
+                return_stmt(std::move(return_stmt)),
                 type(type) {};
   
   virtual ExprType getType() override {
     return EXPR_FUNDEC;
   };
   virtual void generateCode(FILE* out, int* stack_size) override {
-  
+      char type_c = ' ';
+      switch(type) {
+        case INT:
+          type_c = 'w';
+          break;
+        case STRING:
+          type_c = 'l';
+          break;
+        default: break;
+      }
+      if(name.compare("main") == 0) {
+        fprintf(out, "export function %c $%s(", type_c ,name.c_str());
+      } else {
+        fprintf(out, "function %c $%s(", type_c ,name.c_str());
+      }
+      int i = 0;
+      for(auto& arg: args) {
+        if(i > 0) {
+          fprintf(out, ", ");
+        }
+        char type_char = ' ';
+        switch(arg->getReturnType()) {
+          case INT:
+          type_char = 'w';
+          break;
+          case STRING:
+          type_char = 'l';
+          break;
+          default : break;
+        };
+        fprintf(out, "%c ", type_char);      
+        arg->generateCode(out, stack_size);
+        i++;
+      }
+      fprintf(out, "){\n@start\n");
+      block->generateCode(out, stack_size); 
+      if(type != VOID) {
+        return_stmt->generateCode(out, stack_size);      
+      } else {
+        fprintf(out,"\nret\n");
+      }
+      fprintf(out, "\n}\n"); 
   };
 
 };
@@ -278,7 +398,7 @@ class VarDeclaration: public Expr {
   public:
   VarDeclaration(std::unique_ptr<Expr> name, std::unique_ptr<Expr> var_expr): var_name(std::move(name)), var_expr(std::move(var_expr)){}; 
   virtual ExprType getType() override {
-    return EXPR_DECLARATION;
+    return EXPR_VARDEC;
   };
   virtual void generateCode(FILE* out, int* stack_size) override { 
     var_expr->generateCode(out, stack_size); 
@@ -290,6 +410,7 @@ class VarDeclaration: public Expr {
 
 class Program: public Expr {
   std::vector<std::unique_ptr<Expr>> dcls;
+  
   public:
   Program(std::vector<std::unique_ptr<Expr>> exprs): dcls(std::move(exprs)){};
   virtual ExprType getType() override {
@@ -297,9 +418,8 @@ class Program: public Expr {
   };
   virtual void generateCode(FILE* out, int* stack_size) override {
     for(auto& dcl : dcls) {
-      dcl->generateCode( out, stack_size);
+      dcl->generateCode(out, stack_size);
     }
   };
-
 };
 #endif

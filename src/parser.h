@@ -5,8 +5,10 @@
 #include <memory>
 #include "lexer.h"
 #include "expressions.h"
+#include <map>
 
-class Parser {  
+
+class Parser {   
   public:
     Parser(std::string source);
     void init();

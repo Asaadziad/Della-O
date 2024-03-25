@@ -1,6 +1,24 @@
-export function w $main() {
+data $fmt_int = {b "%d", b 0}
+function w $add(w %x, w %y){
 @start
-%A0 =l align 5
+%s0 =w copy %x
+%s1 =w copy %y
+%s0 =w add %s0, %s1
+
+ret %s0
+
+}
+export function   $main(){
+@start
+%s1 =w copy 5
+%x =w copy %s1
+%s2 =w copy 9
+%y =w copy %s2
+%s3 =w copy 16
+%s4 =w copy 9
+%s4 =w call $add(w %s3, w %s4)
+%z =w copy %s4
+%A0 =l alloc4 5
 %A1 =l add %A0, 1
 %A2 =l add %A1, 1
 %A3 =l add %A2, 1
@@ -13,9 +31,9 @@ storeb 108, %A3
 storeb 111, %A4
 %A5 =l add %A4, 1
 storeb 0, %A5
-%s0 =l copy %A0
-%x =w copy %s0
-call $printf(l %s0)
+%s5 =l copy %A0
+call $printf(l %s5)
+call $printf(l $fmt_int, w %z)
+ret
 
-ret 0
 }
