@@ -18,21 +18,40 @@ export function   $main(){
 %s4 =w copy 9
 %s4 =w call $add(w %s3, w %s4)
 %z =w copy %s4
-%A0 =l alloc4 5
+%sr =w copy 4
+%lr =w copy 0
+%lr =w add %sr, %lr
+@loop
+%lr =w sub %lr, 1
+%A0 =l alloc4 11
 %A1 =l add %A0, 1
 %A2 =l add %A1, 1
 %A3 =l add %A2, 1
 %A4 =l add %A3, 1
 %A5 =l add %A4, 1
+%A6 =l add %A5, 1
+%A7 =l add %A6, 1
+%A8 =l add %A7, 1
+%A9 =l add %A8, 1
+%A10 =l add %A9, 1
+%A11 =l add %A10, 1
 storeb 104, %A0
 storeb 101, %A1
 storeb 108, %A2
 storeb 108, %A3
 storeb 111, %A4
-%A5 =l add %A4, 1
-storeb 0, %A5
+storeb 32, %A5
+storeb 119, %A6
+storeb 111, %A7
+storeb 114, %A8
+storeb 108, %A9
+storeb 100, %A10
+%A11 =l add %A10, 1
+storeb 0, %A11
 %s5 =l copy %A0
 call $printf(l %s5)
+jnz %lr, @loop, @end
+@end
 call $printf(l $fmt_int, w %z)
 ret
 

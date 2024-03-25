@@ -83,6 +83,10 @@ inline constexpr char Lexer::peekNext() {
   return buffer[cursor + 1];
 }
 
+inline constexpr char Lexer::peekTwo() {
+  return buffer[cursor + 2];
+}
+
 void Lexer::advance() {
   cursor++;
 }
@@ -213,8 +217,18 @@ void Lexer::init() {
    }
     
    if(isNumChar(current)) {
-      std::string integer = readInteger(this);
-      tokens.push_back(makeToken(integer, TOKEN_INTEGER));    
+     TokenType type = TOKEN_INTEGER; 
+     std::string integer = readInteger(this);
+      if(peekTwo() == '.' && peekNext() == '.') {
+        advance();
+        integer += "..";
+        advance();advance();
+        std::string integer2 = readInteger(this);
+        integer += integer2;
+        type = TOKEN_RANGE;
+        
+      }       
+      tokens.push_back(makeToken(integer, type));    
    }
 
    if(isAlphChar(current)) {
@@ -225,7 +239,9 @@ void Lexer::init() {
         tokens.push_back(makeToken(ident, TOKEN_LET));
       } else if(ident.compare("return") == 0) {
         tokens.push_back(makeToken(ident, TOKEN_RETURN));
-      } else if(ident.compare("print") == 0) {
+      } else if(ident.compare("for") == 0) {
+        tokens.push_back(makeToken(ident, TOKEN_FOR));
+      }else if(ident.compare("print") == 0) {
         tokens.push_back(makeToken(ident, TOKEN_PRINT));
       } else {
         tokens.push_back(makeToken(ident, TOKEN_IDENTIFIER)); 

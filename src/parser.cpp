@@ -52,6 +52,8 @@ static void consume(std::string token_view, Parser& parser) {
 static std::unique_ptr<Expr> parse_expression(Parser& parser);
 static std::unique_ptr<Expr> parse_declaration(Parser& parser);
 static LType parse_type(Parser& parser);
+static std::unique_ptr<Expr> parse_block(Parser& parser);
+
 /*
  * End
  * */
@@ -141,7 +143,7 @@ static std::unique_ptr<Expr> parse_binary_mult(Parser& parser) {
   }
   default: break;  
  }  
- return std::move(lhs); 
+; return std::move(lhs); 
 }
 
 static std::unique_ptr<Expr> parse_binary_plus(Parser& parser) {
@@ -197,10 +199,27 @@ static std::unique_ptr<Expr> parse_print_stmt(Parser& parser) {
   return std::make_unique<PrintStatement>(std::move(exp));
 }
 
+
+static std::unique_ptr<Expr> parse_for_statement(Parser& parser) {
+  consume("for", parser);
+  std::string range = "0..-1";
+  if(getCurrentTokenType(parser) == TOKEN_RANGE) {
+     range = getCurrentTokenView(parser);
+     parser.advance();
+  }
+  auto block = parse_block(parser);
+  consume("}", parser);
+  return std::make_unique<ForStatement>(std::move(block), std::move(range)); 
+}
+
 // statement := expression;
 static std::unique_ptr<Expr> parse_statement(Parser& parser) {
   TokenType type = getCurrentTokenType(parser);
   switch(type) {
+    case TOKEN_FOR:
+      {
+      return parse_for_statement(parser);
+      }
     case TOKEN_RETURN:
       {
         consume("return", parser);
@@ -245,7 +264,7 @@ static LType parse_type(Parser& parser) {
   }
 }
 
-static std::unique_ptr<Expr> parse_block(Parser& parser, std::vector<std::string> arg_names){
+static std::unique_ptr<Expr> parse_block(Parser& parser){
   consume("{", parser);
   std::vector<std::unique_ptr<Expr>> dcls;
   std::map<std::unique_ptr<Expr>, bool> locals;
@@ -296,7 +315,7 @@ static std::unique_ptr<Expr> parse_func_declaration(Parser& parser) {
   
   auto type = parse_type(parser);
   globals_types[fun_name] = type;
-  auto block = parse_block(parser, arg_names); 
+  auto block = parse_block(parser); 
   if(type != VOID) {
     consume("return", parser);
     auto return_stmt_e = parse_expression(parser);

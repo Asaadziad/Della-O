@@ -37,7 +37,7 @@ typedef enum {
   EXPR_FUNDEC,
   EXPR_STRING,
 
-
+  EXPR_FOR,
   EXPR_FUNCALL,
   EXPR_RETURN,
   EXPR_BLOCK,
@@ -281,16 +281,9 @@ class PrintStatement: public Expr {
          {
            type_c = 'w';
            fprintf(out, "call $printf(l $fmt_int, %c %%%s)",type_c, v->getName().c_str());
-          }
-         
-         
+          }  
          break;
-      }
-   
-      
-      
-      
-      
+      } 
     } else {
     string_expr->generateCode(out, stack_size);
     fprintf(out, "call $printf(l %%s%d)\n", *stack_size - 1);
@@ -298,6 +291,63 @@ class PrintStatement: public Expr {
   }; 
 };
 
+static std::vector<int> splitRange(std::string range) {
+  std::vector<int> rangee;
+  std::string tmp = "";
+  int cnt = 0;
+  for(auto& ch : range) {
+     if(ch == '.') { 
+       cnt++;
+       if(cnt > 1) {
+         rangee.push_back(std::stoi(tmp.c_str()));
+       }
+       continue;
+     }
+     tmp += ch;
+  }
+ rangee.push_back(std::stoi(tmp.c_str()));
+  
+  return rangee; 
+}
+
+class ForStatement: public Expr {
+  std::unique_ptr<Expr> block;
+  std::string range;
+  public:
+  ForStatement(std::unique_ptr<Expr> block, std::string range): block(std::move(block)), range(std::move(range)){};
+  virtual void generateCode(FILE* out, int* stack_size) override {
+/*     for 0..100 translates to: 
+ *      %x =w copy 100
+        %s =w copy 0
+@loop
+        %s =w add %s, %x
+        %x =w sub %x, 1
+        jnz %x, @loop, @end
+@end
+*/
+    std::vector<int> mrange = splitRange(range);
+    if(mrange[1] == -1) {
+      fprintf(out, "%%lr =w copy 0\n");
+      fprintf(out, "@loop\n");
+      fprintf(out, "%%lr =w add %%lr, 1\n");
+      block->generateCode(out, stack_size);
+      fprintf(out, "jnz %%lr, @loop, @end\n");
+      fprintf(out, "@end\n");
+    } else {
+      fprintf(out, "%%sr =w copy %d\n", mrange[1]);
+      fprintf(out, "%%lr =w copy %d\n", mrange[0]);
+      fprintf(out, "%%lr =w add %%sr, %%lr\n");
+      fprintf(out, "@loop\n"); 
+      fprintf(out, "%%lr =w sub %%lr, 1\n");
+      block->generateCode(out, stack_size);
+      fprintf(out, "jnz %%lr, @loop, @end\n");
+      fprintf(out, "@end\n"); 
+    }
+  };
+  virtual ExprType getType() override {
+    return EXPR_FOR;
+  }
+};
 
 class Block : public Expr {
   std::map<std::unique_ptr<Expr> ,bool> locals;
@@ -318,6 +368,7 @@ class Block : public Expr {
     }
   }; 
 };
+
 
 
 //  function name : string

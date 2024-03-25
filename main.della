@@ -7,8 +7,12 @@ func main() {
   let y : int = 9;
   let z : int  = add(16, 9);
 
+  for 0..4 {
+    print("hello world");
+  }  
   
-  print("hello");
+  
+ 
   
   print(z);  
 }

@@ -37,6 +37,8 @@ typedef enum {
   TOKEN_FUN,
   TOKEN_LET,
   TOKEN_RETURN,
+  TOKEN_FOR,
+  TOKEN_RANGE,
 } TokenType;
 
 
@@ -62,6 +64,8 @@ class Lexer {
   std::vector<Token>& tokenize();
   void advance();
   constexpr inline char peekNext();
+  constexpr inline char peekTwo();
+
   void consume_current_token();
   Token peek_token();
   Token peek_next_token(); 
