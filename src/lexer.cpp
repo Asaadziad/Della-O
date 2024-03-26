@@ -177,9 +177,26 @@ void Lexer::init() {
      case ',':
         tokens.push_back(makeToken(",", TOKEN_COMMA));
         break;
+     case '<':
+        if(peekNext() == '=') {
+          tokens.push_back(makeToken("<=", TOKEN_LT_EQUAL));
+          advance();
+          break;
+        }
+        tokens.push_back(makeToken("<", TOKEN_LT));
+        break;
+     case '>':
+        if(peekNext() == '=') {
+          tokens.push_back(makeToken(">=", TOKEN_GT_EQUAL));
+          advance();
+          break;
+        }
+        tokens.push_back(makeToken(">", TOKEN_GT));
+        break;
      case '=':
          if(peekNext() == '=') {
           tokens.push_back(makeToken("==", TOKEN_EQUAL_EQUAL));
+          advance();
           break;
          } 
          tokens.push_back(makeToken("=", TOKEN_EQUAL));
@@ -212,23 +229,19 @@ void Lexer::init() {
         std::string input = readString(this);
         tokens.push_back((makeToken(input, TOKEN_STRING)));
               }
-        break;   
+        break; 
+     case '.':
+        if(peekNext() == '.') {
+          advance(); 
+          tokens.push_back((makeToken("..", TOKEN_RANGE)));
+        }
+      break;  
     default:break;
    }
     
    if(isNumChar(current)) {
-     TokenType type = TOKEN_INTEGER; 
-     std::string integer = readInteger(this);
-      if(peekTwo() == '.' && peekNext() == '.') {
-        advance();
-        integer += "..";
-        advance();advance();
-        std::string integer2 = readInteger(this);
-        integer += integer2;
-        type = TOKEN_RANGE;
-        
-      }       
-      tokens.push_back(makeToken(integer, type));    
+     std::string integer = readInteger(this);        
+     tokens.push_back(makeToken(integer, TOKEN_INTEGER));    
    }
 
    if(isAlphChar(current)) {
@@ -241,7 +254,11 @@ void Lexer::init() {
         tokens.push_back(makeToken(ident, TOKEN_RETURN));
       } else if(ident.compare("for") == 0) {
         tokens.push_back(makeToken(ident, TOKEN_FOR));
-      }else if(ident.compare("print") == 0) {
+      } else if(ident.compare("if") == 0) {
+        tokens.push_back(makeToken(ident, TOKEN_IF));
+      } else if(ident.compare("else") == 0) {
+        tokens.push_back(makeToken(ident, TOKEN_ELSE));
+      } else if(ident.compare("print") == 0) {
         tokens.push_back(makeToken(ident, TOKEN_PRINT));
       } else {
         tokens.push_back(makeToken(ident, TOKEN_IDENTIFIER)); 

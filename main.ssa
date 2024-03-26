@@ -18,12 +18,14 @@ export function   $main(){
 %s4 =w copy 9
 %s4 =w call $add(w %s3, w %s4)
 %z =w copy %s4
-%sr =w copy 4
-%lr =w copy 0
-%lr =w add %sr, %lr
-@loop
-%lr =w sub %lr, 1
-%A0 =l alloc4 11
+%le5 =w copy %x
+%re5 =w copy %y
+%s5 =w cslew %le5, %re5
+%condition5 =w copy %s5
+@ifstmt
+jnz %condition5, @ift5, @iff5
+@ift5
+%A0 =l alloc4 8
 %A1 =l add %A0, 1
 %A2 =l add %A1, 1
 %A3 =l add %A2, 1
@@ -32,26 +34,22 @@ export function   $main(){
 %A6 =l add %A5, 1
 %A7 =l add %A6, 1
 %A8 =l add %A7, 1
-%A9 =l add %A8, 1
-%A10 =l add %A9, 1
-%A11 =l add %A10, 1
 storeb 104, %A0
 storeb 101, %A1
 storeb 108, %A2
 storeb 108, %A3
 storeb 111, %A4
-storeb 32, %A5
-storeb 119, %A6
-storeb 111, %A7
-storeb 114, %A8
-storeb 108, %A9
-storeb 100, %A10
-%A11 =l add %A10, 1
-storeb 0, %A11
-%s5 =l copy %A0
-call $printf(l %s5)
-jnz %lr, @loop, @end
-@end
+storeb 98, %A5
+storeb 111, %A6
+storeb 121, %A7
+%A8 =l add %A7, 1
+storeb 0, %A8
+%s7 =l copy %A0
+call $printf(l %s7)
+jmp @ifend5
+@iff5
+call $printf(l $fmt_int, w %y)
+@ifend5
 call $printf(l $fmt_int, w %z)
 ret
 

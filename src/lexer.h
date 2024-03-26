@@ -19,6 +19,10 @@ typedef enum {
   TOKEN_COMMA,
   TOKEN_EQUAL,
   TOKEN_EQUAL_EQUAL,
+  TOKEN_GT,
+  TOKEN_LT,
+  TOKEN_GT_EQUAL,
+  TOKEN_LT_EQUAL,
   TOKEN_INITIALZE, 
 
   TOKEN_PLUS,
@@ -38,6 +42,8 @@ typedef enum {
   TOKEN_LET,
   TOKEN_RETURN,
   TOKEN_FOR,
+  TOKEN_IF,
+  TOKEN_ELSE,
   TOKEN_RANGE,
 } TokenType;
 

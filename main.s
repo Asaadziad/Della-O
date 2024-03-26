@@ -22,16 +22,12 @@ add:
 main:
 	pushq %rbp
 	movq %rsp, %rbp
+	subq $8, %rsp
 	pushq %rbx
-	pushq %r12
 	movl $9, %esi
 	movl $16, %edi
 	callq add
-	movl %eax, %esi
-	movl %esi, %r12d
-	movl $4, %ebx
-.Lbb4:
-	subl $1, %ebx
+	movl %eax, %ebx
 	subq $16, %rsp
 	movq %rsp, %rdi
 	movb $104, (%rdi)
@@ -39,22 +35,16 @@ main:
 	movb $108, 2(%rdi)
 	movb $108, 3(%rdi)
 	movb $111, 4(%rdi)
-	movb $32, 5(%rdi)
-	movb $119, 6(%rdi)
-	movb $111, 7(%rdi)
-	movb $114, 8(%rdi)
-	movb $108, 9(%rdi)
-	movb $100, 10(%rdi)
-	movb $0, 11(%rdi)
+	movb $98, 5(%rdi)
+	movb $111, 6(%rdi)
+	movb $121, 7(%rdi)
+	movb $0, 8(%rdi)
 	callq printf
-	cmpl $0, %ebx
-	jnz .Lbb4
-	movl %r12d, %esi
+	movl %ebx, %esi
 	leaq fmt_int(%rip), %rdi
 	callq printf
 	movq %rbp, %rsp
 	subq $16, %rsp
-	popq %r12
 	popq %rbx
 	leave
 	ret

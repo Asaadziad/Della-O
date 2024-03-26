@@ -123,22 +123,24 @@ static std::unique_ptr<Expr> parse_binary_mult(Parser& parser) {
   if(!lhs) {
      PANIC("Couldn't parse lhs"); 
   }
- switch(getCurrentTokenType(parser)) {
+  
+  switch(getCurrentTokenType(parser)) {
   case TOKEN_DIVIDE:{
     consume("/", parser);
-    auto rhs = parse_primary(parser);
-    if(!rhs){ 
+  auto rhs = parse_primary(parser);
+  if(!rhs){ 
       PANIC("Couldn't parse rhs");  
-    }
+  }  
     
     return std::make_unique<BinaryExpr>(std::move(lhs),std::move(rhs), BINOP_DIVIDE);
   }
   case TOKEN_MULT:{
-    consume("*", parser);
+    consume("*", parser); 
     auto rhs = parse_primary(parser);
-    if(!rhs){ 
-       PANIC("Couldn't parse rhs");  
-    }
+  if(!rhs){ 
+      PANIC("Couldn't parse rhs");  
+  }  
+
     return std::make_unique<BinaryExpr>(std::move(lhs),std::move(rhs), BINOP_MULT);
   }
   default: break;  
@@ -180,13 +182,79 @@ static std::unique_ptr<Expr> parse_string(Parser& parser) {
   return std::make_unique<StringExpr>(std::move(tmp));
 }
 
+static std::unique_ptr<Expr> parse_binary_compare(Parser& parser) {
+    auto lhs = parse_binary_plus(parser);
+    if(!lhs) {
+      PANIC("Couldn't parse comparision");
+    }
+    
+    ComparisionType type;
+    switch(getCurrentTokenType(parser)) {
+      case TOKEN_GT:
+        {
+          consume(">", parser); 
+        type = COMPARE_GT;
+        auto rhs = parse_binary_plus(parser);
+    if(!rhs) {
+      PANIC("Couldnt' parse rhs comparision");
+    }
+        return std::make_unique<ComparisionExpr>(std::move(lhs), std::move(rhs), type);
+    }
+      case TOKEN_GT_EQUAL:
+        {
+        consume(">=",parser);
+        type = COMPARE_GT_EQ;
+        auto rhs = parse_binary_plus(parser);
+    if(!rhs) {
+      PANIC("Couldnt' parse rhs comparision");
+    }
+        return std::make_unique<ComparisionExpr>(std::move(lhs), std::move(rhs), type);
+        }
+      case TOKEN_LT:
+        {
+        consume("<", parser);
+        type =COMPARE_LT;
+        auto rhs = parse_binary_plus(parser);
+    if(!rhs) {
+      PANIC("Couldnt' parse rhs comparision");
+    }
+        return std::make_unique<ComparisionExpr>(std::move(lhs), std::move(rhs), type);
+        }
+      case TOKEN_LT_EQUAL:
+        {
+        consume("<=", parser);
+        type = COMPARE_LT_EQ;
+       auto rhs = parse_binary_plus(parser);
+    if(!rhs) {
+      PANIC("Couldnt' parse rhs comparision");
+    } 
+        return std::make_unique<ComparisionExpr>(std::move(lhs), std::move(rhs), type);
+        }  
+     case TOKEN_EQUAL_EQUAL:
+        {
+        consume("==", parser);
+        type = COMPARE_EQ_EQ;
+        auto rhs = parse_binary_plus(parser);
+    if(!rhs) {
+      PANIC("Couldnt' parse rhs comparision");
+    }
+        return std::make_unique<ComparisionExpr>(std::move(lhs), std::move(rhs), type);
+        }
+     default:{
+       break; 
+             }
+    }
+
+   return std::move(lhs); 
+}
+
 static std::unique_ptr<Expr> parse_expression(Parser& parser) {
   if(getCurrentTokenType(parser) == TOKEN_STRING){
     auto str = parse_string(parser);
     parser.advance();  
     return std::move(str);
   }
-  return parse_binary_plus(parser);
+  return parse_binary_compare(parser);
 }
 
 static std::unique_ptr<Expr> parse_print_stmt(Parser& parser) {
@@ -202,14 +270,30 @@ static std::unique_ptr<Expr> parse_print_stmt(Parser& parser) {
 
 static std::unique_ptr<Expr> parse_for_statement(Parser& parser) {
   consume("for", parser);
-  std::string range = "0..-1";
-  if(getCurrentTokenType(parser) == TOKEN_RANGE) {
-     range = getCurrentTokenView(parser);
-     parser.advance();
-  }
+  auto exp1 = parse_expression(parser);
+  std::string range = getCurrentTokenView(parser);
+  parser.advance(); 
+  auto exp2 = parse_expression(parser);
   auto block = parse_block(parser);
   consume("}", parser);
-  return std::make_unique<ForStatement>(std::move(block), std::move(range)); 
+  return std::make_unique<ForStatement>( std::move(block), std::move(range), std::move(exp1), std::move(exp2)); 
+}
+
+static std::unique_ptr<Expr> parse_if_statement(Parser& parser) {
+  consume("if", parser);
+  consume("(", parser);
+  auto condition = parse_expression(parser);
+  consume(")", parser);
+  auto block = parse_block(parser);
+  consume("}", parser);
+  if(getCurrentTokenType(parser) == TOKEN_ELSE) {
+    consume("else", parser);
+    auto second_block = parse_block(parser); 
+    consume("}", parser);
+   return std::make_unique<IfStatement>(std::move(condition), std::move(block) ,std::move(second_block)); 
+  }
+
+  return std::make_unique<IfStatement>(std::move(condition), std::move(block), nullptr);  
 }
 
 // statement := expression;
@@ -219,6 +303,10 @@ static std::unique_ptr<Expr> parse_statement(Parser& parser) {
     case TOKEN_FOR:
       {
       return parse_for_statement(parser);
+      }
+    case TOKEN_IF:
+      {
+        return parse_if_statement(parser);
       }
     case TOKEN_RETURN:
       {
