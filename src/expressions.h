@@ -24,7 +24,7 @@ typedef enum {
   BINOP_MINUS,
   BINOP_MULT,
   BINOP_DIVIDE,
-    
+  BINOP_MOD,    
   BINOP_ASSIGN,
 } BinopType;
 
@@ -115,7 +115,10 @@ class BoolExpr: public Expr, public DataExpr {
     virtual ExprType getType() override {
       return EXPR_BOOL;
     };
-    virtual void generateCode(FILE* out, int* stack_size) override {}
+    virtual void generateCode(FILE* out, int* stack_size) override {
+        fprintf(out, "%%s%d =w copy %d\n", *stack_size,(bool)val);
+        *stack_size += 1;
+    }
     virtual LType getDataType() override {
       return BOOL;
     }
@@ -318,6 +321,27 @@ class BinaryExpr : public Expr, public DataExpr {
         *stack_size -= 1;
         
         break;
+      case BINOP_MOD:
+        if(lhs->getType() == EXPR_VAR) {
+          fprintf(out, "%%s%d =w copy ", *stack_size);
+          lhs->generateCode(out, stack_size);
+          *stack_size += 1 ;
+          fprintf(out,"\n");
+        } else {
+          lhs->generateCode(out, stack_size);
+        }
+        
+        if(rhs->getType() == EXPR_VAR) {
+          fprintf(out, "%%s%d =w copy ", *stack_size);
+          rhs->generateCode(out, stack_size);
+          fprintf(out,"\n");
+          *stack_size += 1 ;
+        } else {
+          rhs->generateCode(out, stack_size);
+        } 
+        fprintf(out, "%%s%d =w rem %%s%d, %%s%d\n", *stack_size - 2, *stack_size - 2, *stack_size -1); 
+        *stack_size -= 1;
+        break;
       default: break; 
     }
   };
@@ -335,9 +359,10 @@ class ReturnStatement: public Expr {
   virtual ExprType getType() override {
     return EXPR_RETURN;
   };
-  virtual void generateCode(FILE* out, int* stack_size) override {
-    expr->generateCode(out, stack_size);
-    fprintf(out, "\nret %%s%d\n", *stack_size - 1);
+  virtual void generateCode(FILE* out, int* stack_size) override {  
+      expr->generateCode(out, stack_size);
+      fprintf(out, "\n%%r =w copy %%s%d\n", *stack_size - 1);
+      fprintf(out, "jmp @retstmt\n");
   };
   
 };
@@ -358,13 +383,13 @@ class PrintStatement: public Expr {
         case STRING:
           {
            type_c = 'l';
-           fprintf(out, "call $printf(%c %%%s)",type_c, v->getName().c_str());
+           fprintf(out, "call $printf(%c %%%s)\n",type_c, v->getName().c_str());
           } 
          break;
         default:
          {
            type_c = 'w';
-           fprintf(out, "call $printf(l $fmt_int, %c %%%s)",type_c, v->getName().c_str());
+           fprintf(out, "call $printf(l $fmt_int, %c %%%s)\n",type_c, v->getName().c_str());
           }  
          break;
       } 
@@ -454,6 +479,38 @@ class ForStatement: public Expr {
   }
 };
 
+typedef enum {
+  RETURNED_BLOCK,
+  VOID_BLOCK,
+} BlockType;
+class Block : public Expr {
+  std::map<std::unique_ptr<Expr> ,bool> locals;
+  std::vector<std::unique_ptr<Expr>> decls;  
+  BlockType type;
+  public:
+  Block(std::vector<std::unique_ptr<Expr>> decls
+        ): decls(std::move(decls)), type(VOID_BLOCK){};
+  BlockType getBlockType() {
+    return type;
+  }
+  void setBlockType(BlockType type_in) {
+    type = type_in;
+  }
+  virtual ExprType getType() override {
+    return EXPR_BLOCK;
+  };
+  virtual void generateCode(FILE* out, int* stack_size) override {
+    for(auto& decl : decls) {
+      if(decl->getType() == EXPR_VAR) {
+        
+      }
+      decl->generateCode(out, stack_size); 
+    }
+  }; 
+};
+
+
+
 class IfStatement: public Expr {
   std::unique_ptr<Expr> condition;
   std::unique_ptr<Expr> tBlock;
@@ -482,44 +539,22 @@ class IfStatement: public Expr {
     fprintf(out, "jnz %%condition%d, @ift%d, @iff%d\n", stmt_id, stmt_id, stmt_id);
     fprintf(out, "@ift%d\n", stmt_id);
     *stack_size += 1; // hacky solution for a bug TODO:: find real solution
-    tBlock->generateCode(out, stack_size);
-    fprintf(out, "jmp @ifend%d\n", stmt_id);
+    Block* tmpb = static_cast<Block*>(tBlock.release());
+    tmpb->generateCode(out, stack_size);
+    if(tmpb->getBlockType() == VOID_BLOCK) { 
+      fprintf(out, "jmp @ifend%d\n", stmt_id);
+    }
     fprintf(out, "@iff%d\n", stmt_id);
     if(fBlock) {
       fBlock->generateCode(out, stack_size); 
       fprintf(out, "\n");
     }
-    
-    fprintf(out, "@ifend%d\n", stmt_id); 
-    
-
-
+    fprintf(out, "@ifend%d\n", stmt_id);
   };
   virtual ExprType getType() override {
     return EXPR_FOR;
   }
   
-};
-
-
-class Block : public Expr {
-  std::map<std::unique_ptr<Expr> ,bool> locals;
-  std::vector<std::unique_ptr<Expr>> decls;  
-  public:
-  Block(std::vector<std::unique_ptr<Expr>> decls
-        ): decls(std::move(decls)){};
-  
-  virtual ExprType getType() override {
-    return EXPR_BLOCK;
-  };
-  virtual void generateCode(FILE* out, int* stack_size) override {
-    for(auto& decl : decls) {
-      if(decl->getType() == EXPR_VAR) {
-        
-      }
-      decl->generateCode(out, stack_size); 
-    }
-  }; 
 };
 
 
@@ -530,19 +565,17 @@ class Block : public Expr {
 class FunDeclaration: public Expr {
   std::string name;
   std::vector<std::unique_ptr<VarExpr>> args; 
-  std::unique_ptr<Expr>              block; 
-  std::unique_ptr<ReturnStatement> return_stmt;
+  std::unique_ptr<Expr>              block;  
   LType                              type;
   public:
   FunDeclaration(std::string name,
                 std::vector<std::unique_ptr<VarExpr>> a, 
-                std::unique_ptr<Expr> block,
-                std::unique_ptr<ReturnStatement> return_stmt,
+                std::unique_ptr<Expr> block, 
                 LType type):
                 name(std::move(name)),
                 args(std::move(a)), 
                 block(std::move(block)),
-                return_stmt(std::move(return_stmt)),
+               
                 type(type) {};
   
   virtual ExprType getType() override {
@@ -551,6 +584,7 @@ class FunDeclaration: public Expr {
   virtual void generateCode(FILE* out, int* stack_size) override {
       char type_c = ' ';
       switch(type) {
+        case BOOL:
         case INT:
           type_c = 'w';
           break;
@@ -584,11 +618,14 @@ class FunDeclaration: public Expr {
         i++;
       }
       fprintf(out, "){\n@start\n");
-      block->generateCode(out, stack_size); 
-      if(type != VOID) {
-        return_stmt->generateCode(out, stack_size);      
+        
+      Block* tmp = static_cast<Block*>(block.release()); 
+      tmp->generateCode(out, stack_size);
+      fprintf(out, "@retstmt\n");
+      if(tmp->getBlockType() == VOID_BLOCK) { 
+        fprintf(out, "\nret\n");
       } else {
-        fprintf(out,"\nret\n");
+        fprintf(out, "\nret %%r");
       }
       fprintf(out, "\n}\n"); 
   };
@@ -609,7 +646,6 @@ class VarDeclaration: public Expr {
     var_name->generateCode(out, stack_size);
     fprintf(out, " =w copy %%s%d\n", *stack_size - 1);
   };
-
 };
 
 class Program: public Expr {

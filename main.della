@@ -1,20 +1,20 @@
-func add(x : int, y : int) : int {
-  return x+y;
+
+func isOdd(x : int) : bool {
+  if(x%2 == 0) {
+    return false;    
+  }
+  return true;
 }
 
 func main() {
   let x : int = 5;
   let y : int = 9;
-  let z : int  = add(16, 9);
-
-    
+  let z : int = 11; 
   
-  if(x <= y) {
-     print("helloboy");    
+  if(isOdd(3)) {
+    print(z);
   } else {
     print(y);
-  }  
- 
+  }
   
-  print(z);  
 }

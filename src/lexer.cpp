@@ -174,6 +174,9 @@ void Lexer::init() {
         }
         tokens.push_back(makeToken(":", TOKEN_COLON));
         break;
+     case '%':
+        tokens.push_back(makeToken("%", TOKEN_MODULO));
+        break;
      case ',':
         tokens.push_back(makeToken(",", TOKEN_COMMA));
         break;
@@ -254,6 +257,10 @@ void Lexer::init() {
         tokens.push_back(makeToken(ident, TOKEN_RETURN));
       } else if(ident.compare("for") == 0) {
         tokens.push_back(makeToken(ident, TOKEN_FOR));
+      } else if(ident.compare("true") == 0) {
+        tokens.push_back(makeToken(ident, TOKEN_TRUE));
+      } else if(ident.compare("false") == 0) {
+        tokens.push_back(makeToken(ident, TOKEN_FALSE));
       } else if(ident.compare("if") == 0) {
         tokens.push_back(makeToken(ident, TOKEN_IF));
       } else if(ident.compare("else") == 0) {

@@ -13,6 +13,8 @@ typedef enum {
   TOKEN_IDENTIFIER,
   TOKEN_KEYWORD,
   TOKEN_STRING,
+  
+  TOKEN_MODULO,
 
   TOKEN_SEMICOLON,
   TOKEN_COLON,
@@ -44,6 +46,8 @@ typedef enum {
   TOKEN_FOR,
   TOKEN_IF,
   TOKEN_ELSE,
+  TOKEN_TRUE,
+  TOKEN_FALSE,
   TOKEN_RANGE,
 } TokenType;
 

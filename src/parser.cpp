@@ -2,10 +2,10 @@
 #include <iostream>
 #include <memory>
 #include <optional>
-#include "compiler.h"
 
 std::map<std::string, bool> globals;
 std::map<std::string, LType> globals_types;
+
 Parser::Parser(std::string source): lexer(std::make_unique<Lexer>(source)), current(0) {
   lexer->init();
 }
@@ -18,8 +18,7 @@ static TokenType getCurrentTokenType(Parser& parser) {
   return getTokenType(parser.peek_current());
 }
 
-static void panic(const char* msg,const char* file,int line, ...) {
-  
+static void panic(const char* msg,const char* file,int line, ...) {  
   fprintf(stderr, "[%s, %d]: ",  file, line);
   va_list args;
   va_start(args, line);
@@ -28,6 +27,7 @@ static void panic(const char* msg,const char* file,int line, ...) {
   fprintf(stderr, "\n");
   exit(1);
 }
+
 #define PANIC(msg, ...) panic(msg,__FILE__, __LINE__, ##__VA_ARGS__ ) 
 
 static bool expect(std::string token_view, Parser& parser) {
@@ -37,8 +37,7 @@ static bool expect(std::string token_view, Parser& parser) {
   return false;
 }
 
-static void consume(std::string token_view, Parser& parser) {
-  
+static void consume(std::string token_view, Parser& parser) {  
   if(expect(token_view, parser)) {
     parser.advance();
   } else {  
@@ -53,7 +52,7 @@ static std::unique_ptr<Expr> parse_expression(Parser& parser);
 static std::unique_ptr<Expr> parse_declaration(Parser& parser);
 static LType parse_type(Parser& parser);
 static std::unique_ptr<Expr> parse_block(Parser& parser);
-
+static std::unique_ptr<Expr> parse_statement(Parser& parser);
 /*
  * End
  * */
@@ -109,6 +108,20 @@ static std::unique_ptr<Expr> parse_primary(Parser& parser) {
       } 
      
                           }
+    case TOKEN_TRUE: 
+    case TOKEN_FALSE:
+    {
+      bool val = false;
+      TokenType curr = getCurrentTokenType(parser);
+      switch(curr) {
+        case TOKEN_TRUE:
+          val = true;
+          break;
+        default : break;
+      }
+      parser.advance();
+    return std::make_unique<BoolExpr>(val);
+    }
     default:{ 
       PANIC("Unexpected token : %s", getCurrentTokenView(parser).c_str());
             }
@@ -143,6 +156,14 @@ static std::unique_ptr<Expr> parse_binary_mult(Parser& parser) {
 
     return std::make_unique<BinaryExpr>(std::move(lhs),std::move(rhs), BINOP_MULT);
   }
+  case TOKEN_MODULO:{
+        consume("%", parser);
+        auto rhs = parse_primary(parser);
+        if(!rhs) {
+          PANIC("Couldn't parse rhs modulo");
+        }
+        return std::make_unique<BinaryExpr>(std::move(lhs),std::move(rhs), BINOP_MOD);
+                    }
   default: break;  
  }  
 ; return std::move(lhs); 
@@ -275,7 +296,7 @@ static std::unique_ptr<Expr> parse_for_statement(Parser& parser) {
   parser.advance(); 
   auto exp2 = parse_expression(parser);
   auto block = parse_block(parser);
-  consume("}", parser);
+  
   return std::make_unique<ForStatement>( std::move(block), std::move(range), std::move(exp1), std::move(exp2)); 
 }
 
@@ -285,14 +306,15 @@ static std::unique_ptr<Expr> parse_if_statement(Parser& parser) {
   auto condition = parse_expression(parser);
   consume(")", parser);
   auto block = parse_block(parser);
-  consume("}", parser);
+  
+  
   if(getCurrentTokenType(parser) == TOKEN_ELSE) {
     consume("else", parser);
     auto second_block = parse_block(parser); 
-    consume("}", parser);
+    
    return std::make_unique<IfStatement>(std::move(condition), std::move(block) ,std::move(second_block)); 
-  }
-
+  } 
+  
   return std::make_unique<IfStatement>(std::move(condition), std::move(block), nullptr);  
 }
 
@@ -346,8 +368,9 @@ static LType parse_type(Parser& parser) {
     return INT;
   } else if(current_view.compare("str") == 0){
     return STRING;
-  } else { 
-    
+  } else if(current_view.compare("bool") == 0) {
+    return BOOL;
+  }  else {  
     return VOID;
   }
 }
@@ -356,18 +379,25 @@ static std::unique_ptr<Expr> parse_block(Parser& parser){
   consume("{", parser);
   std::vector<std::unique_ptr<Expr>> dcls;
   std::map<std::unique_ptr<Expr>, bool> locals;
-  while(getCurrentTokenType(parser) != TOKEN_RIGHT_BRACKET && getCurrentTokenType(parser) != TOKEN_RETURN) {
-    
+  bool is_returned_block = false;
+  while(getCurrentTokenType(parser) != TOKEN_RIGHT_BRACKET) { 
     auto root = parse_declaration(parser);
     if(!root) {
       PANIC("Couldn't parse declaration inside function");
     }
- 
+    if(root->getType() == EXPR_RETURN) { 
+      is_returned_block = true;
+    } 
     dcls.push_back(std::move(root));
   }
   
+  consume("}", parser);
+  auto block = std::make_unique<Block>(std::move(dcls));
+  if(is_returned_block) {
+    block->setBlockType(RETURNED_BLOCK);
+  }
   
-  return std::make_unique<Block>(std::move(dcls));
+  return std::move(block);
 }
 
 
@@ -403,21 +433,8 @@ static std::unique_ptr<Expr> parse_func_declaration(Parser& parser) {
   
   auto type = parse_type(parser);
   globals_types[fun_name] = type;
-  auto block = parse_block(parser); 
-  if(type != VOID) {
-    consume("return", parser);
-    auto return_stmt_e = parse_expression(parser);
-    consume(";", parser);
-    auto return_stmt = std::make_unique<ReturnStatement>(std::move(return_stmt_e), type);
-    consume("}", parser); // cleanup later
-    return std::make_unique<FunDeclaration>(std::move(fun_name), std::move(args), std::move(block),std::move(return_stmt) ,type);
-  } else {
-    consume("}", parser);
-    return std::make_unique<FunDeclaration>(std::move(fun_name), std::move(args), std::move(block),nullptr ,type); 
-  } 
-                          
-                        
-  
+  auto block = parse_block(parser);  
+  return std::make_unique<FunDeclaration>(std::move(fun_name), std::move(args), std::move(block),type);  
 }
 
 static std::unique_ptr<Expr> parse_var_declaration(Parser& parser) {

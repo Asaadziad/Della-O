@@ -1,56 +1,53 @@
 data $fmt_int = {b "%d", b 0}
-function w $add(w %x, w %y){
+function w $isOdd(w %x){
 @start
 %s0 =w copy %x
-%s1 =w copy %y
-%s0 =w add %s0, %s1
+%s1 =w copy 2
+%s0 =w rem %s0, %s1
+%le0 =w copy %s0
+%s1 =w copy 0
+%re0 =w copy %s1
+%s2 =w ceqw %le0, %re0
+%condition0 =w copy %s2
+@ifstmt
+jnz %condition0, @ift0, @iff0
+@ift0
+%s4 =w copy 0
 
-ret %s0
+%r =w copy %s4
+jmp @retstmt
+@iff0
+@ifend0
+%s5 =w copy 1
 
+%r =w copy %s5
+jmp @retstmt
+@retstmt
+
+ret %r
 }
 export function   $main(){
 @start
-%s1 =w copy 5
-%x =w copy %s1
-%s2 =w copy 9
-%y =w copy %s2
-%s3 =w copy 16
-%s4 =w copy 9
-%s4 =w call $add(w %s3, w %s4)
-%z =w copy %s4
-%le5 =w copy %x
-%re5 =w copy %y
-%s5 =w cslew %le5, %re5
-%condition5 =w copy %s5
+%s6 =w copy 5
+%x =w copy %s6
+%s7 =w copy 9
+%y =w copy %s7
+%s8 =w copy 11
+%z =w copy %s8
+%s9 =w copy 3
+%s9 =w call $isOdd(w %s9)
+%condition9 =w copy %s9
 @ifstmt
-jnz %condition5, @ift5, @iff5
-@ift5
-%A0 =l alloc4 8
-%A1 =l add %A0, 1
-%A2 =l add %A1, 1
-%A3 =l add %A2, 1
-%A4 =l add %A3, 1
-%A5 =l add %A4, 1
-%A6 =l add %A5, 1
-%A7 =l add %A6, 1
-%A8 =l add %A7, 1
-storeb 104, %A0
-storeb 101, %A1
-storeb 108, %A2
-storeb 108, %A3
-storeb 111, %A4
-storeb 98, %A5
-storeb 111, %A6
-storeb 121, %A7
-%A8 =l add %A7, 1
-storeb 0, %A8
-%s7 =l copy %A0
-call $printf(l %s7)
-jmp @ifend5
-@iff5
-call $printf(l $fmt_int, w %y)
-@ifend5
+jnz %condition9, @ift9, @iff9
+@ift9
 call $printf(l $fmt_int, w %z)
+jmp @ifend9
+@iff9
+call $printf(l $fmt_int, w %y)
+
+@ifend9
+@retstmt
+
 ret
 
 }
