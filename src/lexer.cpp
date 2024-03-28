@@ -159,6 +159,25 @@ std::string readString(Lexer* lexer) {
   return ident;
 }
 
+static void readComment(Lexer* lexer) {
+  bool is_multi_line = false;
+  if(lexer->peek() == '*') {
+    is_multi_line = true;
+  }
+  lexer->advance(); 
+  while(true) {
+    lexer->advance();
+    if(lexer->peek() == '\n' && !is_multi_line) {
+      break;
+    }
+    if(lexer->peek() == '*' && lexer->peekNext() == '/' && is_multi_line) {
+      lexer->advance();
+      lexer->advance();
+      break;
+    }
+  } 
+}
+
 void Lexer::init() {
   while(peek() != '\0') {
    char current = peek();
@@ -223,6 +242,12 @@ void Lexer::init() {
          tokens.push_back((makeToken("-", TOKEN_MINUS)));
         break;
      case '/':
+        if(peekNext() == '/' || peekNext() == '*') {
+         advance();
+         readComment(this);
+         break;
+        }
+         
         tokens.push_back((makeToken("/", TOKEN_DIVIDE)));
         break;
      case '*':

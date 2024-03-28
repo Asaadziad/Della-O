@@ -71,17 +71,17 @@ class StringExpr: public Expr, public DataExpr {
   StringExpr(std::string val): val(std::move(val)) {};
   virtual void generateCode(FILE* out, int* stack_size) override {
     size_t len = val.size();
-    fprintf(out, "%%A0 =l alloc4 %lu\n", len);
+    fprintf(out, "%%A%d0 =l alloc4 %lu\n", *stack_size ,len);
     for(int i= 0 ; i < len; i++) {
-        fprintf(out, "%%A%d =l add %%A%d, 1\n", i + 1, i); 
+        fprintf(out, "%%A%d%d =l add %%A%d%d, 1\n", *stack_size ,i + 1, *stack_size ,i); 
     }
          
     for(int i= 0 ; i < len; i++) {
-        fprintf(out, "storeb %d, %%A%d\n",val.c_str()[i], i); 
+        fprintf(out, "storeb %d, %%A%d%d\n",val.c_str()[i], *stack_size ,i); 
     }
-    fprintf(out, "%%A%lu =l add %%A%lu, 1\n", len, len - 1);
-    fprintf(out, "storeb 0, %%A%zu\n", len);
-    fprintf(out, "%%s%d =l copy %%A0\n", *stack_size);
+    fprintf(out, "%%A%d%lu =l add %%A%d%lu, 1\n", *stack_size,len, *stack_size, len - 1);
+    fprintf(out, "storeb 0, %%A%d%zu\n",*stack_size ,len);
+    fprintf(out, "%%s%d =l copy %%A%d0\n", *stack_size,*stack_size);
     *stack_size += 1;
   };
   virtual ExprType getType() override {
@@ -276,6 +276,15 @@ class BinaryExpr : public Expr, public DataExpr {
   virtual LType getDataType() override {
     return INT;
   };
+  BinopType getOpType() {
+    return op;
+  }
+  std::unique_ptr<Expr> getLhs() {
+    return std::move(lhs);
+  }
+  std::unique_ptr<Expr> getRhs() {
+    return std::move(rhs);
+  }
   virtual void generateCode(FILE* out, int* stack_size) override {
     switch(op) {
       case BINOP_PLUS:
@@ -341,6 +350,36 @@ class BinaryExpr : public Expr, public DataExpr {
         } 
         fprintf(out, "%%s%d =w rem %%s%d, %%s%d\n", *stack_size - 2, *stack_size - 2, *stack_size -1); 
         *stack_size -= 1;
+        break;
+      case BINOP_ASSIGN:
+        {
+        BinaryExpr* rhs_p = static_cast<BinaryExpr*>(rhs.release());
+        VarExpr* lhs_p = static_cast<VarExpr*>(lhs.release());     
+        if(rhs_p->getDataType() !=
+          globals_types[lhs_p->getName()]){
+           std::cerr << "Cant assign value of type " << rhs_p->getDataType() << "to variable of type" << 
+             globals_types[lhs_p->getName()] << std::endl; 
+           break;
+        }
+        rhs_p->generateCode(out, stack_size);
+        lhs_p->generateCode(out,stack_size);
+        switch(rhs_p->getDataType()){
+          case INT:
+            fprintf(out," =w");
+            break;
+          case STRING:
+            fprintf(out, " =l");
+            break;
+          case BOOL:
+            fprintf(out, " =w");
+            break;
+          default:
+            fprintf(out, " =w");
+            break;
+        }
+        
+        fprintf(out, " copy %%s%d\n", *stack_size - 1);
+    }
         break;
       default: break; 
     }
@@ -479,12 +518,47 @@ class ForStatement: public Expr {
   }
 };
 
+class VarDeclaration: public Expr {
+  std::unique_ptr<Expr>      var_name;
+  std::unique_ptr<Expr>      var_expr;
+  ExprType dcl_type;
+  std::string name_str;
+  public:
+  VarDeclaration(std::string name_str, std::unique_ptr<Expr> name, std::unique_ptr<Expr> var_expr):name_str(name_str), var_name(std::move(name)), var_expr(std::move(var_expr)){}; 
+  virtual ExprType getType() override {
+    return EXPR_VARDEC;
+  };
+  virtual void generateCode(FILE* out, int* stack_size) override { 
+    var_expr->generateCode(out, stack_size); 
+    VarExpr* var_name_p = static_cast<VarExpr*>(var_name.release());
+    var_name_p->generateCode(out, stack_size);
+    switch(globals_types[var_name_p->getName()]) {
+      case INT:
+        fprintf(out, " =w");
+        break;
+      case STRING:
+        fprintf(out, " =l");
+        break;
+      case BOOL:
+        fprintf(out, " =b");
+        break;
+      default:break;
+    }
+    
+    fprintf(out, " copy %%s%d\n", *stack_size - 1);
+  }; 
+  std::string getName() {
+    return name_str;
+  }
+};
+
+
 typedef enum {
   RETURNED_BLOCK,
   VOID_BLOCK,
 } BlockType;
 class Block : public Expr {
-  std::map<std::unique_ptr<Expr> ,bool> locals;
+  std::map<std::string ,bool> local_variables;
   std::vector<std::unique_ptr<Expr>> decls;  
   BlockType type;
   public:
@@ -501,9 +575,17 @@ class Block : public Expr {
   };
   virtual void generateCode(FILE* out, int* stack_size) override {
     for(auto& decl : decls) {
-      if(decl->getType() == EXPR_VAR) {
-        
+      if(decl->getType() == EXPR_VARDEC) {
+        VarDeclaration* tmp = static_cast<VarDeclaration*>(decl.release());
+        if(!local_variables[tmp->getName()]) { 
+        local_variables[tmp->getName()] = true; 
+        tmp->generateCode(out, stack_size);
+        } else {
+          std::cout << "Compile time error: already declared " << tmp->getName() << std::endl; 
+        }
+        continue;
       }
+      
       decl->generateCode(out, stack_size); 
     }
   }; 
@@ -557,16 +639,14 @@ class IfStatement: public Expr {
   
 };
 
-
-
 //  function name : string
 //  arguments : var expression
 //  function body : block 
 class FunDeclaration: public Expr {
   std::string name;
   std::vector<std::unique_ptr<VarExpr>> args; 
-  std::unique_ptr<Expr>              block;  
-  LType                              type;
+  std::unique_ptr<Expr>                 block;  
+  LType                                 type; 
   public:
   FunDeclaration(std::string name,
                 std::vector<std::unique_ptr<VarExpr>> a, 
@@ -621,30 +701,13 @@ class FunDeclaration: public Expr {
         
       Block* tmp = static_cast<Block*>(block.release()); 
       tmp->generateCode(out, stack_size);
-      fprintf(out, "@retstmt\n");
+      fprintf(out, "\n@retstmt\n");
       if(tmp->getBlockType() == VOID_BLOCK) { 
         fprintf(out, "\nret\n");
       } else {
         fprintf(out, "\nret %%r");
       }
       fprintf(out, "\n}\n"); 
-  };
-
-};
-
-class VarDeclaration: public Expr {
-  std::unique_ptr<Expr>   var_name;
-  std::unique_ptr<Expr>      var_expr;
-  ExprType dcl_type;
-  public:
-  VarDeclaration(std::unique_ptr<Expr> name, std::unique_ptr<Expr> var_expr): var_name(std::move(name)), var_expr(std::move(var_expr)){}; 
-  virtual ExprType getType() override {
-    return EXPR_VARDEC;
-  };
-  virtual void generateCode(FILE* out, int* stack_size) override { 
-    var_expr->generateCode(out, stack_size); 
-    var_name->generateCode(out, stack_size);
-    fprintf(out, " =w copy %%s%d\n", *stack_size - 1);
   };
 };
 

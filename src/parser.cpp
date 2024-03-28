@@ -62,9 +62,28 @@ static std::unique_ptr<Expr> parse_var(Parser& parser) {
   parser.advance(); 
   if(getCurrentTokenType(parser) == TOKEN_COLON) {
     auto type = parse_type(parser);
+    globals_types[var_name] = type;
     return std::make_unique<VarExpr>(var_name, type);
+  } else if(getCurrentTokenType(parser) == TOKEN_EQUAL) {
+    parser.advance();
+    LType type;
+    if(globals[var_name]) {
+      type = globals_types[var_name];
+      
+    }
+    auto var = std::make_unique<VarExpr>(var_name, type);
+    if(!var) {
+      PANIC("Couldn't make var ptr");
+    }
+    auto exp = parse_expression(parser);
+    
+    return std::make_unique<BinaryExpr>(std::move(var),std::move(exp), BINOP_ASSIGN);
   }
-  return std::make_unique<VarExpr>(var_name);
+  LType type;
+  if(globals[var_name]) {
+    type = globals_types[var_name];
+  }
+  return std::make_unique<VarExpr>(var_name, type);
 }
 
 static std::unique_ptr<Expr> parse_func_call(Parser& parser) {
@@ -371,13 +390,15 @@ static LType parse_type(Parser& parser) {
   } else if(current_view.compare("bool") == 0) {
     return BOOL;
   }  else {  
-    return VOID;
+    PANIC("Unknow type");
   }
+
+  return VOID;
 }
 
 static std::unique_ptr<Expr> parse_block(Parser& parser){
   consume("{", parser);
-  std::vector<std::unique_ptr<Expr>> dcls;
+  std::vector<std::unique_ptr<Expr>>    dcls;
   std::map<std::unique_ptr<Expr>, bool> locals;
   bool is_returned_block = false;
   while(getCurrentTokenType(parser) != TOKEN_RIGHT_BRACKET) { 
@@ -409,7 +430,7 @@ static std::unique_ptr<Expr> parse_func_declaration(Parser& parser) {
   globals[fun_name] = 1;
   parser.advance();
   std::vector<std::unique_ptr<VarExpr>> args;
-  std::vector<std::string> arg_names;
+  std::vector<std::string>              arg_names;
   if(expect("(", parser)) {
     parser.advance(); 
     while(getCurrentTokenType(parser) != TOKEN_RIGHT_PAREN) { 
@@ -440,7 +461,7 @@ static std::unique_ptr<Expr> parse_func_declaration(Parser& parser) {
 static std::unique_ptr<Expr> parse_var_declaration(Parser& parser) {
   consume("let", parser);
  
-  
+  std::string var_name = getCurrentTokenView(parser);  
   auto var = parse_expression(parser); 
 
   consume("=", parser);
@@ -450,7 +471,8 @@ static std::unique_ptr<Expr> parse_var_declaration(Parser& parser) {
   }
   
   // return variable declaration
-  return std::make_unique<VarDeclaration>(std::move(var), std::move(exp));
+  globals[var_name] = true;
+  return std::make_unique<VarDeclaration>(var_name,std::move(var), std::move(exp));
 }
 
 // funDeclaration | varDeclaration | statement
