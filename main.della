@@ -6,16 +6,11 @@ func isOdd(x : int) : bool {
 }
 
 func main() {
-  let x : int = 100; 
-  let y : str = "hello";  
   let i : int = 0;
-  for 0..100 {
+  for 0..5 { 
     if(isOdd(i)) {
-      print(i);
+      print(i); 
     }
-    print("hello");
-    i = i + 1;
-  }   
-   
-  print(y);
+     i = i + 1;   
+  } 
 }

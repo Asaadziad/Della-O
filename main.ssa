@@ -29,63 +29,30 @@ ret %r
 }
 export function   $main(){
 @start
-%s6 =w copy 100
-%x =w copy %s6
-%A70 =l alloc4 5
-%A71 =l add %A70, 1
-%A72 =l add %A71, 1
-%A73 =l add %A72, 1
-%A74 =l add %A73, 1
-%A75 =l add %A74, 1
-storeb 104, %A70
-storeb 101, %A71
-storeb 108, %A72
-storeb 108, %A73
-storeb 111, %A74
-%A75 =l add %A74, 1
-storeb 0, %A75
-%s7 =l copy %A70
-%y =l copy %s7
-%s8 =w copy 0
-%i =w copy %s8
-%s9 =w copy 0
-%start =w copy %s9
-%s10 =w copy 100
-%end =w copy %s10
+%s6 =w copy 0
+%i =w copy %s6
+%s7 =w copy 0
+%start =w copy %s7
+%s8 =w copy 5
+%end =w copy %s8
 %lr =w sub %end, %start
 @loop
 %lr =w sub %lr, 1
-%s10 =w call $isOdd()
-%condition11 =w copy %s10
+%s8 =w call $isOdd(w %i)
+%condition9 =w copy %s8
 @ifstmt
-jnz %condition11, @ift11, @iff11
-@ift11
+jnz %condition9, @ift9, @iff9
+@ift9
 call $printf(l $fmt_int, w %i)
-jmp @ifend11
-@iff11
-@ifend11
-%A120 =l alloc4 5
-%A121 =l add %A120, 1
-%A122 =l add %A121, 1
-%A123 =l add %A122, 1
-%A124 =l add %A123, 1
-%A125 =l add %A124, 1
-storeb 104, %A120
-storeb 101, %A121
-storeb 108, %A122
-storeb 108, %A123
-storeb 111, %A124
-%A125 =l add %A124, 1
-storeb 0, %A125
-%s12 =l copy %A120
-call $printf(l %s12)
-%s13 =w copy %i
-%s14 =w copy 1
-%s13 =w add %s13, %s14
-%i =w copy %s13
+jmp @ifend9
+@iff9
+@ifend9
+%s10 =w copy %i
+%s11 =w copy 1
+%s10 =w add %s10, %s11
+%i =w copy %s10
 jnz %lr, @loop, @end
 @end
-call $printf(l %y)
 
 @retstmt
 

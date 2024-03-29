@@ -35,19 +35,13 @@ isOdd:
 main:
 	pushq %rbp
 	movq %rsp, %rbp
-	subq $16, %rsp
 	pushq %rbx
 	pushq %r12
-	movb $104, -8(%rbp)
-	movb $101, -7(%rbp)
-	movb $108, -6(%rbp)
-	movb $108, -5(%rbp)
-	movb $111, -4(%rbp)
-	movb $0, -3(%rbp)
 	movl $0, %r12d
-	movl $100, %ebx
+	movl $5, %ebx
 .Lbb7:
 	subl $1, %ebx
+	movl %r12d, %edi
 	callq isOdd
 	cmpl $0, %eax
 	jz .Lbb10
@@ -55,22 +49,9 @@ main:
 	leaq fmt_int(%rip), %rdi
 	callq printf
 .Lbb10:
-	subq $16, %rsp
-	movq %rsp, %rdi
-	movb $104, (%rdi)
-	movb $101, 1(%rdi)
-	movb $108, 2(%rdi)
-	movb $108, 3(%rdi)
-	movb $111, 4(%rdi)
-	movb $0, 5(%rdi)
-	callq printf
 	addl $1, %r12d
 	cmpl $0, %ebx
 	jnz .Lbb7
-	leaq -8(%rbp), %rdi
-	callq printf
-	movq %rbp, %rsp
-	subq $32, %rsp
 	popq %r12
 	popq %rbx
 	leave
