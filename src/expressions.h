@@ -9,8 +9,6 @@
 #include <iostream>
 #include <map>
 
-extern std::map<std::string, bool>  globals;
-
 typedef enum {
   VOID,
   INT,
@@ -18,7 +16,6 @@ typedef enum {
   BOOL,
 } LType;
 
-extern std::map<std::string, LType> globals_types;
 typedef enum {
   BINOP_PLUS,
   BINOP_MINUS,

@@ -1,58 +1,32 @@
 data $fmt_int = {b "%d", b 0}
-function w $isOdd(w %x){
-@start
-%s0 =w copy %x
-%s1 =w copy 2
-%s0 =w rem %s0, %s1
-%le0 =w copy %s0
-%s1 =w copy 0
-%re0 =w copy %s1
-%s2 =w ceqw %le0, %re0
-%condition0 =w copy %s2
-@ifstmt
-jnz %condition0, @ift0, @iff0
-@ift0
-%s4 =w copy 0
-
-%r =w copy %s4
-jmp @retstmt
-@iff0
-@ifend0
-%s5 =w copy 1
-
-%r =w copy %s5
-jmp @retstmt
-
-@retstmt
-
-ret %r
-}
 export function   $main(){
 @start
-%s6 =w copy 0
-%i =w copy %s6
-%s7 =w copy 0
-%start =w copy %s7
-%s8 =w copy 5
-%end =w copy %s8
-%lr =w sub %end, %start
-@loop
-%lr =w sub %lr, 1
-%s8 =w call $isOdd(w %i)
-%condition9 =w copy %s8
-@ifstmt
-jnz %condition9, @ift9, @iff9
-@ift9
-call $printf(l $fmt_int, w %i)
-jmp @ifend9
-@iff9
-@ifend9
-%s10 =w copy %i
-%s11 =w copy 1
-%s10 =w add %s10, %s11
-%i =w copy %s10
-jnz %lr, @loop, @end
-@end
+%A0 =l alloc4 11
+%current_p =l copy %A0
+storeb 104, %current_p
+%current_p =l add %current_p, 1
+storeb 101, %current_p
+%current_p =l add %current_p, 1
+storeb 108, %current_p
+%current_p =l add %current_p, 1
+storeb 108, %current_p
+%current_p =l add %current_p, 1
+storeb 111, %current_p
+%current_p =l add %current_p, 1
+storeb 32, %current_p
+%current_p =l add %current_p, 1
+storeb 119, %current_p
+%current_p =l add %current_p, 1
+storeb 111, %current_p
+%current_p =l add %current_p, 1
+storeb 114, %current_p
+%current_p =l add %current_p, 1
+storeb 108, %current_p
+%current_p =l add %current_p, 1
+storeb 100, %current_p
+%current_p =l add %current_p, 1
+%s0 =l copy %A0
+call $printf(l %s0)
 
 @retstmt
 

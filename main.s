@@ -6,54 +6,24 @@ fmt_int:
 /* end data */
 
 .text
-isOdd:
-	pushq %rbp
-	movq %rsp, %rbp
-	movl %edi, %eax
-	movl $2, %ecx
-	cltd
-	idivl %ecx
-	movl %edx, %eax
-	cmpl $0, %eax
-	setz %al
-	movzbl %al, %eax
-	cmpl $0, %eax
-	jnz .Lbb3
-	movl $1, %eax
-	jmp .Lbb4
-.Lbb3:
-	movl $0, %eax
-.Lbb4:
-	leave
-	ret
-.type isOdd, @function
-.size isOdd, .-isOdd
-/* end function isOdd */
-
-.text
 .globl main
 main:
 	pushq %rbp
 	movq %rsp, %rbp
-	pushq %rbx
-	pushq %r12
-	movl $0, %r12d
-	movl $5, %ebx
-.Lbb7:
-	subl $1, %ebx
-	movl %r12d, %edi
-	callq isOdd
-	cmpl $0, %eax
-	jz .Lbb10
-	movl %r12d, %esi
-	leaq fmt_int(%rip), %rdi
+	subq $16, %rsp
+	movb $104, -12(%rbp)
+	movb $101, -11(%rbp)
+	movb $108, -10(%rbp)
+	movb $108, -9(%rbp)
+	movb $111, -8(%rbp)
+	movb $32, -7(%rbp)
+	movb $119, -6(%rbp)
+	movb $111, -5(%rbp)
+	movb $114, -4(%rbp)
+	movb $108, -3(%rbp)
+	movb $100, -2(%rbp)
+	leaq -12(%rbp), %rdi
 	callq printf
-.Lbb10:
-	addl $1, %r12d
-	cmpl $0, %ebx
-	jnz .Lbb7
-	popq %r12
-	popq %rbx
 	leave
 	ret
 .type main, @function

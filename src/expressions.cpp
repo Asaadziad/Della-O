@@ -7,21 +7,78 @@
 #include <map>
 #include "expressions.h"
 
+
+extern std::map<std::string, bool> globals;
+extern std::map<std::string, LType> globals_types;
+
+  static void gen_binop(BinopType op, FILE* out) {
+    switch(op) { 
+      case BINOP_PLUS:
+        fprintf(out, "add"); 
+      break;
+      case BINOP_MULT:
+        fprintf(out, "mul");
+        break;
+      case BINOP_MOD:
+        fprintf(out, "rem");
+        break; 
+      default: break;
+    };
+  }
+  static void gen_number(FILE* out, double val) {
+    fprintf(out, "%d", (int)val);
+  }
+
+  static void gen_var_literal(FILE* out, char literal) {
+    fprintf(out, "%%%c", literal);
+  }
+  
+  static void gen_type(FILE* out, LType type) {
+    switch(type){
+      case INT:
+        fprintf(out, "w");
+        break;
+      case STRING:
+        fprintf(out, "l");
+        break;
+      case BOOL: // bool would be a byte as global and word as local
+        fprintf(out, "b");
+        break;
+      default : break;
+    }
+  }
+  
+
+  static void gen_assign(FILE* out, const char* ptr, LType type) {
+    fprintf(out, "%s =", ptr);
+    gen_type(out, type);
+  }
+  
+  // copies the value stored in ptr2 into ptr1
+  static void gen_copy(FILE* out, LType type, const char* ptr1, const char* ptr2) {
+    gen_assign(out, ptr1, type);
+    fprintf (out, "copy %s", ptr2);
+  }
+  
+  // stores a byte in pointer
+  static void gen_storeb(FILE* out, char byte, const char* ptr) {
+    fprintf(out, "storeb %d, %s\n", byte, ptr);
+  }
+  static void gen_storew() {}
+  static void gen_storel() {} 
+
   void StringExpr::generateCode(FILE* out, int* stack_size)  {
     size_t len = val.size();
-    fprintf(out, "%%A%d0 =l alloc4 %lu\n", *stack_size ,len);
+    fprintf(out, "%%A%d =l alloc4 %lu\n", *stack_size ,len);
+    fprintf(out, "%%current_p =l copy %%A%d\n", *stack_size); 
     for(int i= 0 ; i < len; i++) {
-        fprintf(out, "%%A%d%d =l add %%A%d%d, 1\n", *stack_size ,i + 1, *stack_size ,i); 
-    }
-         
-    for(int i= 0 ; i < len; i++) {
-        fprintf(out, "storeb %d, %%A%d%d\n",val.c_str()[i], *stack_size ,i); 
-    }
-    fprintf(out, "%%A%d%lu =l add %%A%d%lu, 1\n", *stack_size,len, *stack_size, len - 1);
-    fprintf(out, "storeb 0, %%A%d%zu\n",*stack_size ,len);
-    fprintf(out, "%%s%d =l copy %%A%d0\n", *stack_size,*stack_size);
+        gen_storeb(out, val.c_str()[i], "%current_p");// *current_p = char;
+        fprintf(out, "%%current_p =l add %%current_p, 1\n"); //  current_p++;
+    }  
+    fprintf(out, "%%s%d =l copy %%A%d\n", *stack_size, *stack_size);
     *stack_size += 1;
   };
+  
   ExprType StringExpr::getType() {
     return EXPR_STRING;
   };
@@ -29,12 +86,13 @@
     return STRING;
   };
 
-ExprType NumberExpr::getType()  {
+  ExprType NumberExpr::getType()  {
    return EXPR_NUMBER;
-}
+  }
     void NumberExpr::generateCode(FILE* out, int* stack_size) {
-        fprintf(out, "%%s%d =w copy %d\n", *stack_size,(int)val);
-        *stack_size += 1;
+       gen_number(out, val); 
+       //fprintf(out, "%%s%d =w copy %d\n", *stack_size,(int)val);
+       *stack_size += 1;
     };
     LType NumberExpr::getDataType()  {
       return INT;

@@ -1,16 +1,8 @@
-func isOdd(x : int) : bool {
-  if(x%2 == 0) {
-    return false;    
-  }
-  return true;
-}
+let y : int  = 0;    // this is global
+
+let ptr : int* = ^y; // this is a pointer
 
 func main() {
-  let i : int = 0;
-  for 0..5 { 
-    if(isOdd(i)) {
-      print(i); 
-    }
-     i = i + 1;   
-  } 
+  let x : int  = 0;  // this is local  
+  print("hello world");  
 }
