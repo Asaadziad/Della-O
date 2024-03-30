@@ -1,6 +1,6 @@
-# Alang
+# Project Della-O
 
-Language -> QBE intermediate language -> assemlby -> machine code
+A programming language with basic control flow and simple built-in features for learning purposes
 
 # Screenshots
 This is an image of the general architecture of this project
