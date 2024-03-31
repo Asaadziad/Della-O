@@ -3,8 +3,10 @@
 #include <memory>
 #include <optional>
 
-std::map<std::string, bool> globals;
-std::map<std::string, LType> globals_types;
+std::unordered_map<std::string, bool> globals;
+std::unordered_map<std::string, LType> globals_types;
+
+std::vector<std::unique_ptr<Locals_storage>> local_variables;
 
 Parser::Parser(std::string source): lexer(std::make_unique<Lexer>(source)), current(0) {
   lexer->init();
@@ -53,6 +55,7 @@ static std::unique_ptr<Expr> parse_declaration(Parser& parser);
 static LType parse_type(Parser& parser);
 static std::unique_ptr<Expr> parse_block(Parser& parser);
 static std::unique_ptr<Expr> parse_statement(Parser& parser);
+static std::unique_ptr<Expr> parse_string(Parser& parser); 
 /*
  * End
  * */
@@ -62,15 +65,12 @@ static std::unique_ptr<Expr> parse_var(Parser& parser) {
   parser.advance(); 
   if(getCurrentTokenType(parser) == TOKEN_COLON) {
     auto type = parse_type(parser);
-    globals_types[var_name] = type;
+    local_variables.back()->mTypes[var_name] = type; 
     return std::make_unique<VarExpr>(var_name, type);
   } else if(getCurrentTokenType(parser) == TOKEN_EQUAL) {
     parser.advance();
     LType type;
-    if(globals[var_name]) {
-      type = globals_types[var_name];
-      
-    }
+    
     auto var = std::make_unique<VarExpr>(var_name, type);
     if(!var) {
       PANIC("Couldn't make var ptr");
@@ -79,10 +79,7 @@ static std::unique_ptr<Expr> parse_var(Parser& parser) {
     
     return std::make_unique<BinaryExpr>(std::move(var),std::move(exp), BINOP_ASSIGN);
   }
-  LType type;
-  if(globals[var_name]) {
-    type = globals_types[var_name];
-  }
+  LType type = local_variables.back()->mTypes[var_name]; 
   return std::make_unique<VarExpr>(var_name, type);
 }
 
@@ -111,6 +108,13 @@ static std::unique_ptr<Expr> parse_func_call(Parser& parser) {
 
 static std::unique_ptr<Expr> parse_primary(Parser& parser) {
   switch(getCurrentTokenType(parser)) { 
+    case TOKEN_LEFT_PAREN:
+    {
+      consume("(", parser);
+      auto root = parse_expression(parser);
+      consume(")",parser);
+      return std::move(root);
+    }
     case TOKEN_INTEGER:{ 
       double v = std::stoi(getCurrentTokenView(parser));    
       auto root = std::make_unique<NumberExpr>(std::move(v));
@@ -140,6 +144,13 @@ static std::unique_ptr<Expr> parse_primary(Parser& parser) {
       }
       parser.advance();
     return std::make_unique<BoolExpr>(val);
+    }
+    case TOKEN_STRING:
+    {    
+       
+      auto str =  parse_string(parser);
+      parser.advance();
+      return std::move(str);
     }
     default:{ 
       PANIC("Unexpected token : %s", getCurrentTokenView(parser).c_str());
@@ -288,12 +299,7 @@ static std::unique_ptr<Expr> parse_binary_compare(Parser& parser) {
    return std::move(lhs); 
 }
 
-static std::unique_ptr<Expr> parse_expression(Parser& parser) {
-  if(getCurrentTokenType(parser) == TOKEN_STRING){
-    auto str = parse_string(parser);
-    parser.advance();  
-    return std::move(str);
-  }
+static std::unique_ptr<Expr> parse_expression(Parser& parser) { 
   return parse_binary_compare(parser);
 }
 
@@ -397,9 +403,9 @@ static LType parse_type(Parser& parser) {
 }
 
 static std::unique_ptr<Expr> parse_block(Parser& parser){
-  consume("{", parser);
-  std::vector<std::unique_ptr<Expr>>    dcls;
-  std::map<std::unique_ptr<Expr>, bool> locals;
+  consume("{", parser); 
+  local_variables.push_back(std::make_unique<Locals_storage>());
+  std::vector<std::unique_ptr<Expr>>    dcls; 
   bool is_returned_block = false;
   while(getCurrentTokenType(parser) != TOKEN_RIGHT_BRACKET) { 
     auto root = parse_declaration(parser);
@@ -430,7 +436,7 @@ static std::unique_ptr<Expr> parse_func_declaration(Parser& parser) {
   consume("func", parser);
   
   std::string fun_name = getCurrentTokenView(parser);
-  globals[fun_name] = 1;
+  
   parser.advance();
   std::vector<std::unique_ptr<VarExpr>> args;
   std::vector<std::string>              arg_names;
@@ -456,7 +462,7 @@ static std::unique_ptr<Expr> parse_func_declaration(Parser& parser) {
   
   
   auto type = parse_type(parser);
-  globals_types[fun_name] = type;
+  
   auto block = parse_block(parser);  
   return std::make_unique<FunDeclaration>(std::move(fun_name), std::move(args), std::move(block),type);  
 }
@@ -465,6 +471,11 @@ static std::unique_ptr<Expr> parse_var_declaration(Parser& parser) {
   consume("let", parser);
  
   std::string var_name = getCurrentTokenView(parser);  
+  if(local_variables.back()->mLocals[var_name]) {
+    
+    PANIC("Variable %s already declared", var_name.c_str());
+  }
+  local_variables.back()->mLocals[var_name] = 1;
   auto var = parse_expression(parser); 
 
   consume("=", parser);
@@ -472,10 +483,8 @@ static std::unique_ptr<Expr> parse_var_declaration(Parser& parser) {
   if(!exp) {
     PANIC("Couldn't parse variable statement");
   }
-  
-  // return variable declaration
-  globals[var_name] = true;
-  return std::make_unique<VarDeclaration>(var_name,std::move(var), std::move(exp));
+   
+  return std::make_unique<BinaryExpr>(std::move(var), std::move(exp), BINOP_ASSIGN);
 }
 
 // funDeclaration | varDeclaration | statement

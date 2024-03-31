@@ -7,7 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
-#include <map>
+#include <unordered_map>
 
 typedef enum {
   VOID,
@@ -15,6 +15,14 @@ typedef enum {
   STRING,
   BOOL,
 } LType;
+
+using Locals = std::unordered_map<std::string, bool>;
+using Locals_types = std::unordered_map<std::string, LType>; 
+
+typedef struct local_storage_t {
+  Locals        mLocals; 
+  Locals_types  mTypes;  
+} Locals_storage;
 
 typedef enum {
   BINOP_PLUS,
@@ -25,17 +33,20 @@ typedef enum {
   BINOP_ASSIGN,
 } BinopType;
 
+
 typedef enum {
   EXPR_NUMBER,
   EXPR_BOOL,
   EXPR_VAR,
+  EXPR_STRING,
+  
   EXPR_BINARY,
   EXPR_COMPARISION, 
   
   EXPR_VARDEC,
   EXPR_DEC,
   EXPR_FUNDEC,
-  EXPR_STRING,
+  
 
   EXPR_FOR,
   EXPR_FUNCALL,
@@ -192,32 +203,20 @@ class ForStatement: public Expr {
   virtual ExprType getType() override; 
 };
 
-class VarDeclaration: public Expr {
-  std::unique_ptr<Expr>      var_name;
-  std::unique_ptr<Expr>      var_expr;
-  ExprType dcl_type;
-  std::string name_str;
-  public:
-  VarDeclaration(std::string name_str, std::unique_ptr<Expr> name, std::unique_ptr<Expr> var_expr):name_str(name_str), var_name(std::move(name)), var_expr(std::move(var_expr)){}; 
-  virtual ExprType getType() override ;
-  virtual void generateCode(FILE* out, int* stack_size) override ; 
-  std::string getName(); 
-};
-
-
 typedef enum {
   RETURNED_BLOCK,
   VOID_BLOCK,
 } BlockType;
 
 
-class Block : public Expr {
-  std::map<std::string ,bool> local_variables;
+class Block : public Expr {  
   std::vector<std::unique_ptr<Expr>> decls;  
   BlockType type;
   public:
   Block(std::vector<std::unique_ptr<Expr>> decls
-        ): decls(std::move(decls)), type(VOID_BLOCK){};
+        ): decls(std::move(decls)), type(VOID_BLOCK){
+  
+  };
   BlockType getBlockType(); 
   void setBlockType(BlockType type_in);
   virtual ExprType getType() override ;

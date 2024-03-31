@@ -5,8 +5,7 @@
 #include <memory>
 #include "lexer.h"
 #include "expressions.h"
-#include <map>
-
+#include <unordered_map>
 
 class Parser {   
   public:

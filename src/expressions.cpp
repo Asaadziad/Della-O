@@ -4,24 +4,35 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
-#include <map>
+#include <unordered_map>
 #include "expressions.h"
 
 
-extern std::map<std::string, bool> globals;
-extern std::map<std::string, LType> globals_types;
-
+extern std::unordered_map<std::string, bool> globals;
+extern std::unordered_map<std::string, LType> globals_types;
+extern Locals_storage storage;
+extern std::vector<std::unique_ptr<Locals_storage>> local_variables;
+  
   static void gen_binop(BinopType op, FILE* out) {
-    switch(op) { 
+    switch(op) {            
       case BINOP_PLUS:
         fprintf(out, "add"); 
       break;
+      case BINOP_MINUS:
+        fprintf(out, "sub");
+        break;
       case BINOP_MULT:
         fprintf(out, "mul");
+        break;
+      case BINOP_DIVIDE:
+        fprintf(out, "div");
         break;
       case BINOP_MOD:
         fprintf(out, "rem");
         break; 
+      case BINOP_ASSIGN:
+        fprintf(out, "copy");
+        break;
       default: break;
     };
   }
@@ -49,16 +60,13 @@ extern std::map<std::string, LType> globals_types;
   }
   
 
-  static void gen_assign(FILE* out, const char* ptr, LType type) {
-    fprintf(out, "%s =", ptr);
+  static void gen_assign(FILE* out, LType type) {
+    fprintf(out, " =");
     gen_type(out, type);
-  }
-  
-  // copies the value stored in ptr2 into ptr1
-  static void gen_copy(FILE* out, LType type, const char* ptr1, const char* ptr2) {
-    gen_assign(out, ptr1, type);
-    fprintf (out, "copy %s", ptr2);
-  }
+    fprintf(out, " ");
+    gen_binop(BINOP_ASSIGN, out);
+    fprintf(out, " "); 
+  } 
   
   // stores a byte in pointer
   static void gen_storeb(FILE* out, char byte, const char* ptr) {
@@ -102,7 +110,7 @@ extern std::map<std::string, LType> globals_types;
       return EXPR_BOOL;
     };
     void BoolExpr::generateCode(FILE* out, int* stack_size) {
-        fprintf(out, "%%s%d =w copy %d\n", *stack_size,(bool)val);
+        gen_number(out, (int)val); 
         *stack_size += 1;
     }
     LType BoolExpr::getDataType(){
@@ -305,35 +313,27 @@ ExprType FunCall::getType() {
         break;
       case BINOP_ASSIGN:
         {
-        BinaryExpr* rhs_p = static_cast<BinaryExpr*>(rhs.release());
-        VarExpr* lhs_p = static_cast<VarExpr*>(lhs.release());     
-        if(rhs_p->getDataType() !=
-          globals_types[lhs_p->getName()]){
-           std::cerr << "Cant assign value of type " << rhs_p->getDataType() << "to variable of type" << 
-             globals_types[lhs_p->getName()] << std::endl; 
-           break;
-        }
-        rhs_p->generateCode(out, stack_size);
-        lhs_p->generateCode(out,stack_size);
-        switch(rhs_p->getDataType()){
-          case INT:
-            fprintf(out," =w");
-            break;
-          case STRING:
-            fprintf(out, " =l");
-            break;
-          case BOOL:
-            fprintf(out, " =w");
-            break;
-          default:
-            fprintf(out, " =w");
-            break;
-        }
-        
-        fprintf(out, " copy %%s%d\n", *stack_size - 1);
-    }
-        break;
-      default: break; 
+          VarExpr* lhs_p = static_cast<VarExpr*>(lhs.release());
+          LType type = lhs_p->getDataType();
+          switch(type) {
+            case BOOL:
+            case INT:
+              lhs_p->generateCode(out, stack_size);
+              gen_assign(out, type); 
+              rhs->generateCode(out, stack_size);
+              break;
+            case STRING:
+              rhs->generateCode(out, stack_size);
+              lhs_p->generateCode(out, stack_size);
+              gen_assign(out, type);
+              fprintf(out, "%%s%d\n", *stack_size - 1);
+              
+             break; 
+            default: break; 
+          } 
+          break;
+        } 
+     default: break; 
     }
   };
 
@@ -426,32 +426,6 @@ void ForStatement::generateCode(FILE* out, int* stack_size) {
     return EXPR_FOR;
   }
 
-  ExprType VarDeclaration::getType(){
-    return EXPR_VARDEC;
-  };
-  void VarDeclaration::generateCode(FILE* out, int* stack_size)  { 
-    var_expr->generateCode(out, stack_size); 
-    VarExpr* var_name_p = static_cast<VarExpr*>(var_name.release());
-    var_name_p->generateCode(out, stack_size);
-    switch(globals_types[var_name_p->getName()]) {
-      case INT:
-        fprintf(out, " =w");
-        break;
-      case STRING:
-        fprintf(out, " =l");
-        break;
-      case BOOL:
-        fprintf(out, " =b");
-        break;
-      default:break;
-    }
-    
-    fprintf(out, " copy %%s%d\n", *stack_size - 1);
-  }; 
-  std::string VarDeclaration::getName() {
-    return name_str;
-  }
-
   BlockType Block::getBlockType() {
     return type;
   }
@@ -461,21 +435,26 @@ void ForStatement::generateCode(FILE* out, int* stack_size) {
   ExprType Block::getType() {
     return EXPR_BLOCK;
   };
-  void Block::generateCode(FILE* out, int* stack_size) {
-    for(auto& decl : decls) {
-      if(decl->getType() == EXPR_VARDEC) {
-        VarDeclaration* tmp = static_cast<VarDeclaration*>(decl.release());
-        if(!local_variables[tmp->getName()]) { 
-        local_variables[tmp->getName()] = true; 
-        tmp->generateCode(out, stack_size);
-        } else {
-          std::cout << "Compile time error: already declared " << tmp->getName() << std::endl; 
+  void Block::generateCode(FILE* out, int* stack_size) { 
+    
+    for(auto& decl : decls) { 
+      if(decl->getType() == EXPR_VAR) {
+        VarExpr* tmp = static_cast<VarExpr*>(decl.release());
+        std::string var_name = tmp->getName();
+        if(!local_variables.back()->mLocals[var_name]) {
+          std::cout << "Error: Undeclared variable " << var_name << std::endl;
         }
-        continue;
-      }
-      
+      }  
+      if(decl->getType() == EXPR_BINARY) {
+        BinaryExpr* tmpb = static_cast<BinaryExpr*>(decl.release());
+        if(tmpb->getLhs()->getType() == EXPR_VAR &&
+            tmpb->getOpType() == BINOP_ASSIGN) {
+             
+        }
+      } 
       decl->generateCode(out, stack_size); 
     }
+   local_variables.pop_back(); 
   }
 
 void IfStatement::generateCode(FILE* out, int* stack_size) {
@@ -551,7 +530,7 @@ void IfStatement::generateCode(FILE* out, int* stack_size) {
         i++;
       }
       fprintf(out, "){\n@start\n");
-        
+      
       Block* tmp = static_cast<Block*>(block.release()); 
       tmp->generateCode(out, stack_size);
       fprintf(out, "\n@retstmt\n");
@@ -561,6 +540,7 @@ void IfStatement::generateCode(FILE* out, int* stack_size) {
         fprintf(out, "\nret %%r");
       }
       fprintf(out, "\n}\n"); 
+      
   }
 
 

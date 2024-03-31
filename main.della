@@ -1,8 +1,8 @@
-let y : int  = 0;    // this is global
-
-let ptr : int* = ^y; // this is a pointer
-
 func main() {
-  let x : int  = 0;  // this is local  
-  print("hello world");  
+  let x : int = 0;
+
+  
+
+ 
+
 }
