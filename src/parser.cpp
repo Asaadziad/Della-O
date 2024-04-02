@@ -3,10 +3,6 @@
 #include <memory>
 #include <optional>
 
-std::unordered_map<std::string, bool> globals;
-std::unordered_map<std::string, LType> globals_types;
-
-std::vector<std::unique_ptr<Locals_storage>> local_variables;
 
 Parser::Parser(std::string source): lexer(std::make_unique<Lexer>(source)), current(0) {
   lexer->init();
@@ -65,7 +61,6 @@ static std::unique_ptr<Expr> parse_var(Parser& parser) {
   parser.advance(); 
   if(getCurrentTokenType(parser) == TOKEN_COLON) {
     auto type = parse_type(parser);
-    local_variables.back()->mTypes[var_name] = type; 
     return std::make_unique<VarExpr>(var_name, type);
   } else if(getCurrentTokenType(parser) == TOKEN_EQUAL) {
     parser.advance();
@@ -79,7 +74,7 @@ static std::unique_ptr<Expr> parse_var(Parser& parser) {
     
     return std::make_unique<BinaryExpr>(std::move(var),std::move(exp), BINOP_ASSIGN);
   }
-  LType type = local_variables.back()->mTypes[var_name]; 
+  LType type = INT; 
   return std::make_unique<VarExpr>(var_name, type);
 }
 
@@ -403,8 +398,7 @@ static LType parse_type(Parser& parser) {
 }
 
 static std::unique_ptr<Expr> parse_block(Parser& parser){
-  consume("{", parser); 
-  local_variables.push_back(std::make_unique<Locals_storage>());
+  consume("{", parser);  
   std::vector<std::unique_ptr<Expr>>    dcls; 
   bool is_returned_block = false;
   while(getCurrentTokenType(parser) != TOKEN_RIGHT_BRACKET) { 
@@ -467,15 +461,10 @@ static std::unique_ptr<Expr> parse_func_declaration(Parser& parser) {
   return std::make_unique<FunDeclaration>(std::move(fun_name), std::move(args), std::move(block),type);  
 }
 
-static std::unique_ptr<Expr> parse_var_declaration(Parser& parser) {
+static std::unique_ptr<Expr> parse_var_declaration(Parser& parser) { 
   consume("let", parser);
  
-  std::string var_name = getCurrentTokenView(parser);  
-  if(local_variables.back()->mLocals[var_name]) {
-    
-    PANIC("Variable %s already declared", var_name.c_str());
-  }
-  local_variables.back()->mLocals[var_name] = 1;
+  std::string var_name = getCurrentTokenView(parser);    
   auto var = parse_expression(parser); 
 
   consume("=", parser);
@@ -484,7 +473,7 @@ static std::unique_ptr<Expr> parse_var_declaration(Parser& parser) {
     PANIC("Couldn't parse variable statement");
   }
    
-  return std::make_unique<BinaryExpr>(std::move(var), std::move(exp), BINOP_ASSIGN);
+  return std::make_unique<VarDeclaration>(std::move(var), std::move(exp));
 }
 
 // funDeclaration | varDeclaration | statement
@@ -507,14 +496,9 @@ static std::unique_ptr<Expr> parse_program(Parser& parser) {
  return std::make_unique<Program>(std::move(dcls)); 
 }
 
-void Parser::init(){  
-  FILE* out = fopen("main.ssa", "w+");
-  if(!out) exit(1);
-  fprintf(out, "data $fmt_int = {b \"%%d\", b 0}\n");
-  auto root = parse_program(*this);   
-  int stack_size = 0;
-  root->generateCode(out, &stack_size);
-  fclose(out); 
+std::unique_ptr<Expr> Parser::parse(){  
+  auto root = parse_program(*this);    
+  return std::move(root);
 } 
 
 Token Parser::peek_current() {

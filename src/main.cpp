@@ -1,8 +1,10 @@
 #include <iostream>
-#include "parser.h"
+#include <memory>
+#include <stdexcept>
+#include "compiler.h"
 
 int main() {
-  Parser parser("main.della");
-  parser.init();  
+  Compiler c("main.della"); 
+  c.compile(); 
   return 0;
 }
