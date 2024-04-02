@@ -71,7 +71,7 @@
   static void gen_storew() {}
   static void gen_storel() {} 
 
-  void StringExpr::generateCode(FILE* out, int* stack_size, Locals varia
+  void StringExpr::generateCode(FILE* out, int* stack_size, Locals& varia
       )  {
     size_t len = val.size();
     fprintf(out, "%%A%d =l alloc4 %lu\n", *stack_size ,len);
@@ -94,7 +94,7 @@
   ExprType NumberExpr::getType()  {
    return EXPR_NUMBER;
   }
-    void NumberExpr::generateCode(FILE* out, int* stack_size, Locals varia
+    void NumberExpr::generateCode(FILE* out, int* stack_size, Locals& varia
         ) {
        gen_number(out, val); 
        //fprintf(out, "%%s%d =w copy %d\n", *stack_size,(int)val);
@@ -107,8 +107,7 @@
     ExprType BoolExpr::getType() {
       return EXPR_BOOL;
     };
-    void BoolExpr::generateCode(FILE* out, int* stack_size, Locals varia
-        ) {
+    void BoolExpr::generateCode(FILE* out, int* stack_size, Locals& varia) {
         gen_number(out, (int)val); 
         *stack_size += 1;
     }
@@ -128,7 +127,7 @@ void VarExpr::setVarType(LType type) { var_type = type; };
    std::string VarExpr::getName() {
     return id_name;
    };
-   void VarExpr::generateCode(FILE* out, int* stack_size, Locals variables_storage)  {      
+   void VarExpr::generateCode(FILE* out, int* stack_size, Locals& variables_storage)  {      
     fprintf(out,"%%%s", id_name.c_str());      
     };
   LType VarExpr::getReturnType() {
@@ -141,7 +140,7 @@ ExprType FunCall::getType() {
    LType FunCall::getDataType() {
     return return_type;
    }
-   void FunCall::generateCode(FILE* out, int* stack_size, Locals variables_storage )  {
+   void FunCall::generateCode(FILE* out, int* stack_size, Locals& variables_storage )  {
     std::vector<int> fixed_args;
     for(auto& arg: args) {
       if(arg->getType() == EXPR_VAR) {  
@@ -179,7 +178,7 @@ ExprType FunCall::getType() {
    LType ComparisionExpr::getDataType() {
       return BOOL;
     };
-    void ComparisionExpr::generateCode(FILE* out, int* stack_size, Locals variables_storage) {
+    void ComparisionExpr::generateCode(FILE* out, int* stack_size, Locals& variables_storage) {
       int c_id = *stack_size;
       if(lhs->getType() == EXPR_VAR) {
          fprintf(out, "%%le%d =w copy ", c_id);
@@ -235,7 +234,7 @@ ExprType FunCall::getType() {
   std::unique_ptr<Expr> BinaryExpr::getRhs() {
     return std::move(rhs);
   }
-  void BinaryExpr::generateCode(FILE* out, int* stack_size, Locals variables_storage)  {
+  void BinaryExpr::generateCode(FILE* out, int* stack_size, Locals& variables_storage)  {
     switch(op) {
       case BINOP_PLUS:
         if(lhs->getType() == EXPR_VAR) {
@@ -330,7 +329,7 @@ ExprType FunCall::getType() {
   ExprType ReturnStatement::getType() {
     return EXPR_RETURN;
   };
-  void ReturnStatement::generateCode(FILE* out, int* stack_size, Locals variables_storage)  {  
+  void ReturnStatement::generateCode(FILE* out, int* stack_size, Locals& variables_storage)  {  
       expr->generateCode(out, stack_size, variables_storage);
       fprintf(out, "\n%%r =w copy %%s%d\n", *stack_size - 1);
       fprintf(out, "jmp @retstmt\n");
@@ -339,7 +338,7 @@ ExprType FunCall::getType() {
   ExprType PrintStatement::getType() {
     return EXPR_FUNCALL;
   };
-  void PrintStatement::generateCode(FILE* out, int* stack_size, Locals variables_storage)  {
+  void PrintStatement::generateCode(FILE* out, int* stack_size, Locals& variables_storage)  {
     if(string_expr->getType() == EXPR_VAR) { 
       auto tmp  = string_expr.release(); 
       VarExpr* v = static_cast<VarExpr*> (tmp); 
@@ -364,7 +363,7 @@ ExprType FunCall::getType() {
     }
   };
 
-void ForStatement::generateCode(FILE* out, int* stack_size, Locals variables_storage) {
+void ForStatement::generateCode(FILE* out, int* stack_size, Locals& variables_storage) {
 /*     for 0..100 translates to: 
  *      %x =w copy 100
         %s =w copy 0
@@ -425,17 +424,18 @@ void ForStatement::generateCode(FILE* out, int* stack_size, Locals variables_sto
   ExprType Block::getType() {
     return EXPR_BLOCK;
   };
-  void Block::generateCode(FILE* out, int* stack_size, Locals variables_storage) { 
-    variables_storage.scope_depth++;
-    variables_storage.current_scope++;  
+  void Block::generateCode(FILE* out, int* stack_size, Locals& variables_storage) { 
+    Vars block_locals;
+    variables_storage.variables.push_back(block_locals);
+    variables_storage.current_scope++;
     for(auto& decl : decls) {  
       decl->generateCode(out, stack_size, variables_storage); 
     }
-    variables_storage.scope_depth--;
-    variables_storage.current_scope--;
+    variables_storage.current_scope--; 
+    variables_storage.variables.pop_back();
   }
 
-void IfStatement::generateCode(FILE* out, int* stack_size, Locals variables_storage) {
+void IfStatement::generateCode(FILE* out, int* stack_size, Locals& variables_storage) {
     
     int stmt_id = *stack_size; 
     
@@ -472,30 +472,34 @@ void IfStatement::generateCode(FILE* out, int* stack_size, Locals variables_stor
     return EXPR_VARDEC;
   }
   
-  void VarDeclaration::generateCode(FILE* out, int* stack_size, Locals variables_storage) {
-    VarExpr* v = static_cast<VarExpr*>(var.release());
+  void VarDeclaration::generateCode(FILE* out, int* stack_size, Locals& variables_storage) {
+    VarExpr* v = static_cast<VarExpr*>(var.release()); 
     if(variables_storage.variables[variables_storage.current_scope][v->getName()]) {
-      std::cout << "Variable already"<< v->getName() <<" declared";
+      std::cout << "Variable "<< v->getName() <<" already declared";
       return;
     }
     if(var_expr->getType() == EXPR_STRING) {
       var_expr->generateCode(out, stack_size, variables_storage);
-      var->generateCode(out, stack_size, variables_storage);
+      v->generateCode(out, stack_size, variables_storage);
       gen_assign(out, STRING);
       fprintf(out, "%%s%d", *stack_size - 1);
+      variables_storage.variables[variables_storage.current_scope][v->getName()] = 1;
       return;
     }
     // check if variable already declared in the current scope
-    var->generateCode(out, stack_size, variables_storage); 
+    v->generateCode(out, stack_size, variables_storage); 
     gen_assign(out, INT);
   //  generate the code for var declaration
     var_expr->generateCode(out, stack_size, variables_storage);
+    
+    // mark it as initialized
+    variables_storage.variables[variables_storage.current_scope][v->getName()] = 1;
   }
 
   ExprType FunDeclaration::getType()  {
     return EXPR_FUNDEC;
   };
-  void FunDeclaration::generateCode(FILE* out, int* stack_size, Locals variables_storage) {
+  void FunDeclaration::generateCode(FILE* out, int* stack_size, Locals& variables_storage) {
       char type_c = ' ';
       switch(type) {
         case BOOL:
@@ -549,7 +553,7 @@ void IfStatement::generateCode(FILE* out, int* stack_size, Locals variables_stor
   ExprType Program::getType() {
     return EXPR_PROGRAM;
   };
-  void Program::generateCode(FILE* out, int* stack_size, Locals variables_storage)  {
+  void Program::generateCode(FILE* out, int* stack_size, Locals& variables_storage)  {
     for(auto& dcl : dcls) {
       dcl->generateCode(out, stack_size, variables_storage);
     }

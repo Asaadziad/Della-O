@@ -12,11 +12,13 @@
 
 typedef std::unordered_map<std::string, bool> Vars; 
 
-typedef struct locals {
+typedef struct Locals {
   std::vector<Vars>   variables;
-  size_t current_scope;
-  size_t scope_depth;
+  size_t current_scope; 
 } Locals;
+
+
+//typedef std::unordered_map<std::string, bool> Locals;
 
 typedef enum {
   VOID,
@@ -62,7 +64,7 @@ class Expr {
   public:
   virtual ~Expr() = default; 
   virtual ExprType getType() = 0; 
-  virtual void generateCode(FILE* out, int* stack_size, Locals variables_storage) = 0; 
+  virtual void generateCode(FILE* out, int* stack_size, Locals& variables_storage) = 0; 
 };
 
 class DataExpr {
@@ -79,7 +81,7 @@ class StringExpr: public Expr, public DataExpr {
   std::string val;
   public:
   StringExpr(std::string val): val(std::move(val)) {};
-  virtual void generateCode(FILE* out, int* stack_size, Locals variables_storage) override;
+  virtual void generateCode(FILE* out, int* stack_size, Locals& variables_storage) override;
   virtual ExprType getType() override;
   virtual LType getDataType() override;
 };
@@ -89,7 +91,7 @@ class NumberExpr: public Expr, public DataExpr {
   public:
     NumberExpr(double val): val(val) {};  
     virtual ExprType getType() override;
-    virtual void generateCode(FILE* out, int* stack_size, Locals variables_storage) override;
+    virtual void generateCode(FILE* out, int* stack_size, Locals& variables_storage) override;
     virtual LType getDataType() override;
 };
 
@@ -98,7 +100,7 @@ class BoolExpr: public Expr, public DataExpr {
   public:
     BoolExpr(bool val): val(val) {};
     virtual ExprType getType() override;
-    virtual void generateCode(FILE* out, int* stack_size, Locals varia
+    virtual void generateCode(FILE* out, int* stack_size, Locals& varia
         ) override; 
     virtual LType getDataType() override; 
 };
@@ -114,7 +116,7 @@ class VarExpr: public Expr, public DataExpr, public NamedExpr {
    virtual ExprType getType() override;
    virtual LType getDataType() override; 
    virtual std::string getName() override ;
-  virtual void generateCode(FILE* out, int* stack_size, Locals variables) override ;
+  virtual void generateCode(FILE* out, int* stack_size, Locals& variables) override ;
   LType getReturnType();
 };
 
@@ -126,7 +128,7 @@ class FunCall: public Expr, public DataExpr {
   FunCall(std::string name, std::vector<std::unique_ptr<Expr>> args): name(name), args(std::move(args)){};
    virtual ExprType getType() override;
    virtual LType getDataType() override; 
-  virtual void generateCode(FILE* out, int* stack_size, Locals varia
+  virtual void generateCode(FILE* out, int* stack_size, Locals& varia
       ) override;
 
 };
@@ -152,7 +154,7 @@ class ComparisionExpr: public Expr, public DataExpr {
                     op(op){};
     virtual ExprType getType() override;
     virtual LType getDataType() override;
-    virtual void generateCode(FILE* out, int* stack_size, Locals varia
+    virtual void generateCode(FILE* out, int* stack_size, Locals& varia
         ) override;
 };
 
@@ -173,7 +175,7 @@ class BinaryExpr : public Expr, public DataExpr {
   BinopType getOpType(); 
   std::unique_ptr<Expr> getLhs(); 
   std::unique_ptr<Expr> getRhs(); 
-  virtual void generateCode(FILE* out, int* stack_size, Locals varia
+  virtual void generateCode(FILE* out, int* stack_size, Locals& varia
       ) override;
 };
 
@@ -186,7 +188,7 @@ class ReturnStatement: public Expr {
                   expr(std::move(expr)), return_type(type) {};
   
   virtual ExprType getType() override ;
-  virtual void generateCode(FILE* out, int* stack_size, Locals varia
+  virtual void generateCode(FILE* out, int* stack_size, Locals& varia
       ) override ;
   
 };
@@ -196,7 +198,7 @@ class PrintStatement: public Expr {
   public:
   PrintStatement(std::unique_ptr<Expr> expr): string_expr(std::move(expr)) {};
   virtual ExprType getType() override ;
-  virtual void generateCode(FILE* out, int* stack_size, Locals variables_storage) override; 
+  virtual void generateCode(FILE* out, int* stack_size, Locals& variables_storage) override; 
 };
 
 class ForStatement: public Expr {
@@ -206,7 +208,7 @@ class ForStatement: public Expr {
   std::string range;
   public:
   ForStatement(std::unique_ptr<Expr> block, std::string range, std::unique_ptr<Expr> left, std::unique_ptr<Expr> right):left_exp(std::move(left)), right_exp(std::move(right)), block(std::move(block)), range(std::move(range)){};
-  virtual void generateCode(FILE* out, int* stack_size, Locals varia
+  virtual void generateCode(FILE* out, int* stack_size, Locals& varia
       ) override ;
   virtual ExprType getType() override; 
 };
@@ -228,7 +230,7 @@ class Block : public Expr {
   BlockType getBlockType(); 
   void setBlockType(BlockType type_in);
   virtual ExprType getType() override ;
-  virtual void generateCode(FILE* out, int* stack_size, Locals varia
+  virtual void generateCode(FILE* out, int* stack_size, Locals& varia
       ) override; 
 };
 
@@ -245,7 +247,7 @@ class IfStatement: public Expr {
               tBlock(std::move(tBlock)),
               fBlock(std::move(fBlock)){}
   
-  virtual void generateCode(FILE* out, int* stack_size, Locals varia
+  virtual void generateCode(FILE* out, int* stack_size, Locals& varia
       ) override ;
   virtual ExprType getType() override; 
   
@@ -259,7 +261,7 @@ class VarDeclaration: public Expr {
     VarDeclaration(std::unique_ptr<Expr> var,
                   std::unique_ptr<Expr> var_expr): var(std::move(var)), var_expr(std::move(var_expr)) {};
   virtual ExprType getType() override ;
-  virtual void generateCode(FILE* out, int* stack_size, Locals varia
+  virtual void generateCode(FILE* out, int* stack_size, Locals& varia
       ) override ;
 };
 //  function name : string
@@ -282,7 +284,7 @@ class FunDeclaration: public Expr {
                 type(type) {};
   
   virtual ExprType getType() override ;
-  virtual void generateCode(FILE* out, int* stack_size, Locals varia
+  virtual void generateCode(FILE* out, int* stack_size, Locals& varia
       ) override ;
 };
 
@@ -291,7 +293,7 @@ class Program: public Expr {
   public:
   Program(std::vector<std::unique_ptr<Expr>> exprs): dcls(std::move(exprs)){};
   virtual ExprType getType() override ;
-  virtual void generateCode(FILE* out, int* stack_size, Locals varia
+  virtual void generateCode(FILE* out, int* stack_size, Locals& varia
       ) override;
 };
 #endif

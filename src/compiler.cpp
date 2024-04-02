@@ -8,6 +8,6 @@ void Compiler::compile() {
   }
   int stack_size = 0;
   root->generateCode(out, &stack_size, 
-                      );
+                     globals);
   fclose(out);
 }
