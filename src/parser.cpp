@@ -65,7 +65,6 @@ static std::unique_ptr<Expr> parse_var(Parser& parser) {
   } else if(getCurrentTokenType(parser) == TOKEN_EQUAL) {
     parser.advance();
     LType type;
-    
     auto var = std::make_unique<VarExpr>(var_name, type);
     if(!var) {
       PANIC("Couldn't make var ptr");
@@ -409,9 +408,7 @@ static std::unique_ptr<Expr> parse_block(Parser& parser){
     if(root->getType() == EXPR_RETURN) { 
       is_returned_block = true;
     }
-    if(root->getType() == EXPR_VARDEC) {
-      
-    } 
+     
     dcls.push_back(std::move(root));
   }
   

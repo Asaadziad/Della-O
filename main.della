@@ -1,8 +1,18 @@
+
+struct foo {
+  x : int,
+  y : bool,
+  z : str,
+};
+
 func main() {
-  let x : bool = false;
-  
-  for 0..100 {
-    let x : str = "hello";
-    print(x);
-  }
+ 
+  foo.x = 69;
+  print(foo.x);
+
+  let arr : []bool;  // vector
+  arr.push(6);
+  arr.pop();
+  arr[0] = 5;
+    
 }

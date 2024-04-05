@@ -157,11 +157,13 @@ ExprType FunCall::getType() {
       }
       if(fixed_args[i] == -1) {
         VarExpr* tmpv = static_cast<VarExpr*>(args[i].release());
-        LType type = (tmpv->getDataType());
-        switch(type) { 
+        LType type = 
+          variables_storage.variables_types[variables_storage.current_scope][tmpv->getName()];
+        switch(type) {
           case STRING:
             fprintf(out, "l ");
             break;
+          
           default : fprintf(out, "w ");
         }
         tmpv->generateCode(out, stack_size, variables_storage);
@@ -343,17 +345,19 @@ ExprType FunCall::getType() {
       auto tmp  = string_expr.release(); 
       VarExpr* v = static_cast<VarExpr*> (tmp); 
       char type_c = ' ';
-      switch(v->getDataType()) { 
+      LType type = 
+        variables_storage.variables_types[variables_storage.current_scope][v->getName()];
+      switch(type) { 
         case STRING:
           {
            type_c = 'l';
-           fprintf(out, "call $printf(%c %%%s)\n",type_c, v->getName().c_str());
+           fprintf(out, "call $printf(%c %%%s%zu)\n",type_c, v->getName().c_str(), variables_storage.current_scope);
           } 
          break;
         default:
          {
            type_c = 'w';
-           fprintf(out, "call $printf(l $fmt_int, %c %%%s)\n",type_c, v->getName().c_str());
+           fprintf(out, "call $printf(l $fmt_int, %c %%%s%zu)\n",type_c, v->getName().c_str(), variables_storage.current_scope);
           }  
          break;
       } 
@@ -384,25 +388,14 @@ void ForStatement::generateCode(FILE* out, int* stack_size, Locals& variables_st
 
       
       
-      if(left_exp->getType() == EXPR_VAR) {
-        fprintf(out, "%%start =w copy ");
-        left_exp->generateCode(out, stack_size, variables_storage);
-        fprintf(out, "\n");
-        
-      } else {
-        left_exp->generateCode(out, stack_size, variables_storage);
-        fprintf(out, "%%start =w copy %%s%d\n", *stack_size - 1);
-      } 
-      if(right_exp->getType() == EXPR_VAR) {
-        fprintf(out, "%%end =w copy ");
-        right_exp->generateCode(out, stack_size, variables_storage);
-        fprintf(out, "\n");
-        
-      } else {
-        right_exp->generateCode(out, stack_size, variables_storage);
-        fprintf(out, "%%end =w copy %%s%d\n", *stack_size - 1);      
-      }
       
+      fprintf(out, "%%start =w copy ");
+      left_exp->generateCode(out, stack_size, variables_storage);
+      fprintf(out, "\n"); 
+      
+      fprintf(out, "%%end =w copy ");
+      right_exp->generateCode(out, stack_size, variables_storage);
+      fprintf(out, "\n");  
       fprintf(out, "%%lr =w sub %%end, %%start\n");
       fprintf(out, "@loop\n");
       fprintf(out, "%%lr =w sub %%lr, 1\n");
@@ -426,12 +419,15 @@ void ForStatement::generateCode(FILE* out, int* stack_size, Locals& variables_st
   };
   void Block::generateCode(FILE* out, int* stack_size, Locals& variables_storage) { 
     Vars block_locals;
+    Vars_Types block_locals_types;
     variables_storage.variables.push_back(block_locals);
+    variables_storage.variables_types.push_back(block_locals_types);
     variables_storage.current_scope++;
     for(auto& decl : decls) {  
       decl->generateCode(out, stack_size, variables_storage); 
     }
     variables_storage.current_scope--; 
+    variables_storage.variables_types.pop_back();
     variables_storage.variables.pop_back();
   }
 
@@ -481,21 +477,25 @@ void IfStatement::generateCode(FILE* out, int* stack_size, Locals& variables_sto
     if(var_expr->getType() == EXPR_STRING) {
       var_expr->generateCode(out, stack_size, variables_storage);
       v->generateCode(out, stack_size, variables_storage);
+      fprintf(out, "%zu", variables_storage.current_scope);
       gen_assign(out, STRING);
-      fprintf(out, "%%s%d", *stack_size - 1);
+      fprintf(out, "%%s%d\n", *stack_size - 1);
+      variables_storage.variables_types[variables_storage.current_scope][v->getName()] = STRING;
       variables_storage.variables[variables_storage.current_scope][v->getName()] = 1;
       return;
     }
-    // check if variable already declared in the current scope
+    
     v->generateCode(out, stack_size, variables_storage); 
+    fprintf(out, "%zu", variables_storage.current_scope);
     gen_assign(out, INT);
   //  generate the code for var declaration
     var_expr->generateCode(out, stack_size, variables_storage);
-    
+    fprintf(out, "\n");
     // mark it as initialized
+    variables_storage.variables_types[variables_storage.current_scope][v->getName()] = INT;
     variables_storage.variables[variables_storage.current_scope][v->getName()] = 1;
   }
-
+    
   ExprType FunDeclaration::getType()  {
     return EXPR_FUNDEC;
   };

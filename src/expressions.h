@@ -10,14 +10,7 @@
 #include <unordered_map>
 
 
-typedef std::unordered_map<std::string, bool> Vars; 
-
-typedef struct Locals {
-  std::vector<Vars>   variables;
-  size_t current_scope; 
-} Locals;
-
-
+typedef std::unordered_map<std::string, bool>  Vars; 
 //typedef std::unordered_map<std::string, bool> Locals;
 
 typedef enum {
@@ -26,6 +19,14 @@ typedef enum {
   STRING,
   BOOL,
 } LType;
+
+typedef std::unordered_map<std::string, LType> Vars_Types;
+typedef struct Locals {
+  std::vector<Vars>       variables;
+  std::vector<Vars_Types> variables_types;
+  size_t current_scope; 
+} Locals;
+
 
 
 typedef enum {

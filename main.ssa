@@ -1,29 +1,8 @@
+data $fmt = {b "hello", b 0}
 export function   $main(){
 @start
-%x =w copy 00%start =w copy %s1
-100%end =w copy %s2
-%lr =w sub %end, %start
-@loop
-%lr =w sub %lr, 1
-%A3 =l alloc4 5
-%current_p =l copy %A3
-storeb 104, %current_p
-%current_p =l add %current_p, 1
-storeb 101, %current_p
-%current_p =l add %current_p, 1
-storeb 108, %current_p
-%current_p =l add %current_p, 1
-storeb 108, %current_p
-%current_p =l add %current_p, 1
-storeb 111, %current_p
-%current_p =l add %current_p, 1
-%s3 =l copy %A3
-%x =l copy %s3call $printf(l $fmt_int, w %x)
-jnz %lr, @loop, @end
-@end
 
-@retstmt
-
+call $write(w 1, l $fmt, w 5)
 ret
 
 }
