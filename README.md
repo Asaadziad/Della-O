@@ -23,3 +23,5 @@ Simple program:
 ![Screenshot from 2024-03-28 22-15-18](https://github.com/Asaadziad/Della-O/assets/108868994/8c47600c-e1ac-43a5-a3f8-ab04bf0e908a)
 
 ## Contributing
+
+Submit a pull request
