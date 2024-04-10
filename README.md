@@ -2,13 +2,13 @@
 
 A programming language with basic control flow and simple built-in features for learning purposes
 
-# Features
+## Features
 - Control flow
 - Statically typed
 - Strings
 - Loops
 
-# Screenshots
+## Screenshots
 
 Function and variable declarations:
 
@@ -21,3 +21,5 @@ Now declaring variable type is a must or the compiler will panic:
 Simple program:
 
 ![Screenshot from 2024-03-28 22-15-18](https://github.com/Asaadziad/Della-O/assets/108868994/8c47600c-e1ac-43a5-a3f8-ab04bf0e908a)
+
+## Contributing
