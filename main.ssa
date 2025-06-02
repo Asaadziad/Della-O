@@ -1,8 +1,0 @@
-data $fmt = {b "hello", b 0}
-export function   $main(){
-@start
-
-call $write(w 1, l $fmt, w 5)
-ret
-
-}
